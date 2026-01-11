@@ -53,6 +53,7 @@ const createInitialState = (stage: number = 1, score: number = 0, lives: number 
       chargeRatio: 0,
       isGrounded: true,
       facingRight: true,
+      airChargeLockedVelocityX: null,
     },
     platforms,
     moon,
@@ -198,6 +199,7 @@ export function Game() {
           chargeRatio: 0,
           isGrounded: true,
           facingRight: true,
+          airChargeLockedVelocityX: null,
         },
         platforms,
         moon,
@@ -230,42 +232,59 @@ export function Game() {
       // 経過時間
       newState.elapsedTime = (performance.now() - newState.stageStartTime) / 1000;
 
-      // チャージ処理（スペースキー長押し中）
-      if (keyboard.isSpacePressed && tako.isGrounded && tako.state !== 'dead') {
+      // チャージ処理（スペースキー長押し中 - 地上でも空中でも可能）
+      if (keyboard.isSpacePressed && tako.state !== 'dead') {
         if (tako.chargeStartTime === null) {
           tako.chargeStartTime = performance.now();
           tako.state = 'charging';
+          // 空中でチャージ開始時、現在のx速度をロック
+          if (!tako.isGrounded) {
+            tako.airChargeLockedVelocityX = tako.velocity.x;
+          }
         }
         tako.chargeRatio = Math.min(
           (performance.now() - tako.chargeStartTime) / CONFIG.JUMP.MAX_CHARGE_TIME,
           1
         );
-        // チャージ中は矢印キーの方向を保存
-        if (keyboard.arrowDirection.x !== 0 || keyboard.arrowDirection.y !== 0) {
+        // 地上チャージ中は矢印キーの方向を保存（空中チャージ中は無視）
+        if (tako.isGrounded && (keyboard.arrowDirection.x !== 0 || keyboard.arrowDirection.y !== 0)) {
           jumpDirectionRef.current = { ...keyboard.arrowDirection };
+        }
+        // 空中チャージ中はx速度をロックした値に維持（慣性保持）
+        if (tako.airChargeLockedVelocityX !== null) {
+          tako.velocity.x = tako.airChargeLockedVelocityX;
         }
       }
 
       // ジャンプ発動（スペースキーを離した瞬間）
       // chargeStartTimeがnullでない = チャージ中だった
       const wasCharging = tako.chargeStartTime !== null;
+      const wasAirCharge = tako.airChargeLockedVelocityX !== null;
       if (keyboard.spaceJustReleased && wasCharging) {
+        // 空中チャージの場合は真上にジャンプ（慣性は維持）
+        const jumpDirection = wasAirCharge ? { x: 0, y: -1 } : jumpDirectionRef.current;
         const { vx, vy, facingRight } = calculateKeyboardJump(
           tako.chargeRatio,
-          jumpDirectionRef.current
+          jumpDirection
         );
-        tako.velocity = { x: vx, y: vy };
+        // 空中チャージ時は現在のx速度を維持したまま、ジャンプのy速度だけ適用
+        if (wasAirCharge) {
+          tako.velocity = { x: tako.airChargeLockedVelocityX!, y: vy };
+        } else {
+          tako.velocity = { x: vx, y: vy };
+        }
         tako.state = 'jumping';
         tako.isGrounded = false;
-        tako.facingRight = facingRight;
+        tako.facingRight = wasAirCharge ? tako.facingRight : facingRight;
         tako.chargeStartTime = null;
         tako.chargeRatio = 0;
+        tako.airChargeLockedVelocityX = null;
         // 方向をリセット
         jumpDirectionRef.current = { x: 0, y: -1 };
       }
 
-      // 空中での微調整（矢印キー）
-      if (!tako.isGrounded && tako.state !== 'dead') {
+      // 空中での微調整（矢印キー）- 空中チャージ中は無視
+      if (!tako.isGrounded && tako.state !== 'dead' && tako.airChargeLockedVelocityX === null) {
         if (keyboard.arrowDirection.x !== 0) {
           tako.velocity.x += keyboard.arrowDirection.x * CONFIG.TAKO.AIR_CONTROL * deltaTime * 60;
         }
@@ -352,6 +371,7 @@ export function Game() {
             chargeRatio: 0,
             isGrounded: true,
             facingRight: true,
+            airChargeLockedVelocityX: null,
           };
 
           // カメラをリセット

@@ -10,20 +10,21 @@ function randomInRange(min: number, max: number): number {
 // 床を生成
 export function generatePlatforms(stageConfig: StageConfig): Platform[] {
   const platforms: Platform[] = [];
-  const startY = CONFIG.CANVAS_HEIGHT - 100; // スタート地点
 
-  // スタート床
+  // 地面（一番下のフラットな床、画面幅全体）
+  const groundY = CONFIG.CANVAS_HEIGHT - 50;
   platforms.push({
-    x: 50,
-    y: startY,
-    width: 150,
+    x: 0,
+    y: groundY,
+    width: CONFIG.CANVAS_WIDTH,
   });
 
-  let currentY = startY;
-  let lastX = 50;
+  // 浮遊床の開始位置（地面より上）
+  let currentY = groundY - 150;
+  let lastX = CONFIG.CANVAS_WIDTH / 2;
   const zigzag = stageConfig.id >= 3; // Stage 3以降はジグザグ配置
 
-  for (let i = 1; i < stageConfig.platformCount; i++) {
+  for (let i = 0; i < stageConfig.platformCount; i++) {
     const gap = randomInRange(stageConfig.gapMin, stageConfig.gapMax);
     currentY -= gap;
 
@@ -32,7 +33,7 @@ export function generatePlatforms(stageConfig: StageConfig): Platform[] {
     let x: number;
     if (zigzag) {
       // ジグザグ配置
-      if (i % 2 === 1) {
+      if (i % 2 === 0) {
         x = randomInRange(CONFIG.CANVAS_WIDTH * 0.5, CONFIG.CANVAS_WIDTH - width - 20);
       } else {
         x = randomInRange(20, CONFIG.CANVAS_WIDTH * 0.3);
@@ -66,10 +67,11 @@ export function generateMoon(platforms: Platform[]): Moon {
   };
 }
 
-// 水を初期化
+// 水を初期化（地面より下から開始）
 export function initWater(stageConfig: StageConfig): Water {
+  const groundY = CONFIG.CANVAS_HEIGHT - 50;
   return {
-    y: CONFIG.CANVAS_HEIGHT + 200, // 画面外から開始
+    y: groundY + 100, // 地面より下から開始
     speed: stageConfig.waterSpeed,
     isRising: false,
     waveOffset: 0,

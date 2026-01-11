@@ -25,6 +25,7 @@ export interface Tako {
   chargeRatio: number;
   isGrounded: boolean;
   facingRight: boolean;
+  airChargeLockedVelocityX: number | null; // 空中チャージ開始時のx速度（慣性保持用）
 }
 
 // 床
