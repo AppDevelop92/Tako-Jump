@@ -1,5 +1,5 @@
 import { CONFIG } from './config';
-import type { Tako, Platform, Moon, Water, Position } from './types';
+import type { Tako, Platform, Moon, Water, Position, Eel } from './types';
 
 // 重力を適用
 export function applyGravity(tako: Tako): Tako {
@@ -65,10 +65,20 @@ export function checkPlatformCollision(
 
     if (wasAbove && nowAtOrBelow && notTooDeep) {
       const isIce = platform.type === 'ice';
-      // 氷の床: 着地時の速度を0.7倍にして滑り開始
-      const newVelocityX = isIce
-        ? tako.velocity.x * CONFIG.ICE.LANDING_SPEED_FACTOR
-        : 0;
+      const isCaterpillar = platform.type === 'caterpillar';
+
+      // 氷の床: 着地時のx速度を維持して滑り開始
+      // キャタピラ床: x速度は0にするが、キャタピラの移動で動く
+      // 通常床: x速度は0
+      let newVelocityX = 0;
+      if (isIce) {
+        // 着地角度に基づいて滑り速度を決定
+        // 着地時のx速度をそのまま使用（一度滑り出したら速度一定）
+        newVelocityX = tako.velocity.x * CONFIG.ICE.LANDING_SPEED_FACTOR;
+      } else if (isCaterpillar) {
+        // キャタピラ床では速度0（キャタピラによる移動は別処理）
+        newVelocityX = 0;
+      }
 
       return {
         tako: {
@@ -170,4 +180,90 @@ export function calculateJump(
     vy: -power * Math.sin(angle),
     facingRight: dx >= 0,
   };
+}
+
+// キャタピラ床上でのタコ移動
+export function applyCaterpillarMovement(tako: Tako, platform: Platform | null): Tako {
+  if (!platform || platform.type !== 'caterpillar' || !tako.isGrounded) {
+    return tako;
+  }
+
+  const direction = platform.caterpillarDirection || 1;
+  const speed = CONFIG.CATERPILLAR.SPEED * direction;
+
+  // タコを移動
+  const newX = tako.position.x + speed;
+
+  // 床から落ちそうな場合
+  const takoLeft = newX;
+  const takoRight = newX + CONFIG.TAKO.WIDTH;
+  const platLeft = platform.x;
+  const platRight = platform.x + platform.width;
+
+  // 床の端を超えたら落下開始
+  if (takoRight < platLeft || takoLeft > platRight) {
+    return {
+      ...tako,
+      position: { ...tako.position, x: newX },
+      isGrounded: false,
+      state: 'jumping',
+    };
+  }
+
+  return {
+    ...tako,
+    position: { ...tako.position, x: newX },
+  };
+}
+
+// うなぎとの衝突判定
+export function checkEelCollision(tako: Tako, eels: Eel[]): {
+  tako: Tako;
+  eels: Eel[];
+  collected: boolean;
+} {
+  if (tako.state === 'dead') {
+    return { tako, eels, collected: false };
+  }
+
+  const takoCenterX = tako.position.x + CONFIG.TAKO.WIDTH / 2;
+  const takoCenterY = tako.position.y + CONFIG.TAKO.HEIGHT / 2;
+
+  const newEels = eels.map(eel => {
+    if (eel.isCollected) return eel;
+
+    const eelCenterX = eel.x + eel.size / 2;
+    const eelCenterY = eel.y + eel.size / 2;
+
+    const dx = takoCenterX - eelCenterX;
+    const dy = takoCenterY - eelCenterY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // 衝突判定
+    if (distance < (CONFIG.TAKO.WIDTH / 2 + eel.size / 2) * 0.8) {
+      return { ...eel, isCollected: true };
+    }
+    return eel;
+  });
+
+  // 新しく取得したうなぎがあるか確認
+  const collectedEel = newEels.find((eel, i) => eel.isCollected && !eels[i].isCollected);
+
+  if (collectedEel) {
+    // スーパージャンプを発動（真上に飛ぶ）
+    return {
+      tako: {
+        ...tako,
+        velocity: { x: 0, y: -CONFIG.EEL.SUPER_JUMP_VELOCITY },
+        state: 'jumping',
+        isGrounded: false,
+        chargeStartTime: null,
+        chargeRatio: 0,
+      },
+      eels: newEels,
+      collected: true,
+    };
+  }
+
+  return { tako, eels: newEels, collected: false };
 }

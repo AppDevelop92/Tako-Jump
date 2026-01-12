@@ -10,6 +10,7 @@ import {
   generatePlatforms,
   generateMoon,
   generateStars,
+  generateEels,
   setRandomSeed,
   initWater,
   calculateScore,
@@ -19,10 +20,13 @@ import {
   drawTako,
   drawMoon,
   drawWater,
+  drawEels,
   drawHUD,
   loadHighScore,
   saveHighScore,
   applyIceFriction,
+  applyCaterpillarMovement,
+  checkEelCollision,
 } from '../game';
 import type { Platform, GameState } from '../game';
 import { useGameLoop, useKeyboardInput } from '../hooks';
@@ -38,6 +42,7 @@ const createInitialState = (stage: number = 1, score: number = 0, lives: number 
   setRandomSeed(stage); // ステージ番号でシード固定
   const platforms = generatePlatforms(stageConfig);
   const moon = generateMoon(platforms);
+  const eels = generateEels(stageConfig, platforms);
   const totalHeight = stageConfig.totalHeight * CONFIG.CANVAS_HEIGHT;
 
   return {
@@ -59,6 +64,7 @@ const createInitialState = (stage: number = 1, score: number = 0, lives: number 
       airChargeLockedVelocityX: null,
     },
     platforms,
+    eels,
     moon,
     water: initWater(stageConfig),
     camera: {
@@ -168,13 +174,15 @@ export function Game() {
     setState(prev => {
       const nextStageNum = prev.stage + 1;
       if (nextStageNum > CONFIG.STAGES.length) {
-        return { ...prev, screen: 'cleared' };
+        // ステージ10クリア後はタイトルに戻る（ALL CLEAR処理はcleared画面で行う）
+        return createInitialState(1, 0, CONFIG.LIVES);
       }
 
       const stageConfig = CONFIG.STAGES[nextStageNum - 1];
       setRandomSeed(nextStageNum); // ステージ番号でシード固定
       const platforms = generatePlatforms(stageConfig);
       const moon = generateMoon(platforms);
+      const eels = generateEels(stageConfig, platforms);
       const totalHeight = stageConfig.totalHeight * CONFIG.CANVAS_HEIGHT;
 
       if (waterDelayTimerRef.current) {
@@ -204,6 +212,7 @@ export function Game() {
           airChargeLockedVelocityX: null,
         },
         platforms,
+        eels,
         moon,
         water: initWater(stageConfig),
         camera: {
@@ -313,10 +322,36 @@ export function Game() {
         }
 
         tako = applyIceFriction(tako, currentPlatformRef.current);
+
+        // キャタピラ床上での移動
+        tako = applyCaterpillarMovement(tako, currentPlatformRef.current);
+
         tako = wrapScreen(tako);
+
+        // うなぎとの衝突判定
+        const eelResult = checkEelCollision(tako, newState.eels);
+        tako = eelResult.tako;
+        newState.eels = eelResult.eels;
       }
 
       newState.tako = tako;
+
+      // うなぎの回転アニメーション
+      newState.eels = newState.eels.map(eel => ({
+        ...eel,
+        rotation: eel.rotation + CONFIG.EEL.ROTATION_SPEED,
+      }));
+
+      // キャタピラのアニメーション
+      newState.platforms = newState.platforms.map(platform => {
+        if (platform.type === 'caterpillar') {
+          return {
+            ...platform,
+            caterpillarOffset: ((platform.caterpillarOffset || 0) + 0.5) % (CONFIG.CATERPILLAR.SEGMENT_WIDTH * 2),
+          };
+        }
+        return platform;
+      });
 
       // 月との衝突（クリア）
       if (checkMoonCollision(tako, newState.moon) && tako.state !== 'dead') {
@@ -380,6 +415,8 @@ export function Game() {
           setTimeout(() => {
             setState(p => {
               const startPlatform = p.platforms[0];
+              // うなぎをリセット（再度取得可能に）
+              const resetEels = p.eels.map(eel => ({ ...eel, isCollected: false }));
               return {
                 ...p,
                 tako: {
@@ -392,6 +429,7 @@ export function Game() {
                   facingRight: true,
                   airChargeLockedVelocityX: null,
                 },
+                eels: resetEels,
                 camera: {
                   y: startPlatform.y - CONFIG.CANVAS_HEIGHT + 200,
                   targetY: startPlatform.y - CONFIG.CANVAS_HEIGHT + 200,
@@ -445,6 +483,7 @@ export function Game() {
     drawStars(ctx, state.stars, state.camera.y);
     drawMoon(ctx, state);
     drawPlatforms(ctx, state.platforms, state.camera.y);
+    drawEels(ctx, state.eels, state.camera.y);
     drawWater(ctx, state);
     drawTako(ctx, state, images);
 
@@ -513,6 +552,8 @@ export function Game() {
 
     // クリア画面
     if (state.screen === 'cleared') {
+      const isAllClear = state.stage >= CONFIG.STAGES.length;
+
       ctx.fillStyle = CONFIG.COLORS.UI_BG;
       ctx.fillRect(40, 200, CONFIG.CANVAS_WIDTH - 80, 400);
       ctx.strokeStyle = CONFIG.COLORS.UI_BORDER;
@@ -522,7 +563,15 @@ export function Game() {
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '16px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('STAGE CLEAR!', CONFIG.CANVAS_WIDTH / 2, 260);
+
+      // ALL CLEAR!! または STAGE CLEAR!
+      if (isAllClear) {
+        ctx.fillStyle = Math.floor(Date.now() / 200) % 2 === 0 ? '#FFD700' : '#FFFFFF';
+        ctx.fillText('ALL CLEAR!!', CONFIG.CANVAS_WIDTH / 2, 260);
+        ctx.fillStyle = '#FFFFFF';
+      } else {
+        ctx.fillText('STAGE CLEAR!', CONFIG.CANVAS_WIDTH / 2, 260);
+      }
 
       ctx.font = '12px "Press Start 2P", monospace';
       ctx.fillText('HIGH SCORE', CONFIG.CANVAS_WIDTH / 2, 320);

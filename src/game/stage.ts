@@ -1,6 +1,6 @@
 import { CONFIG } from './config';
 import type { StageConfig } from './config';
-import type { Platform, Moon, Star, Water, PlatformType } from './types';
+import type { Platform, Moon, Star, Water, PlatformType, Eel } from './types';
 
 // シード付き乱数生成器（Mulberry32アルゴリズム）
 // 同じシードからは常に同じ乱数列が生成される
@@ -33,6 +33,23 @@ function randomInRange(min: number, max: number): number {
   return currentRandom() * (max - min) + min;
 }
 
+// 床のタイプを決定
+function determinePlatformType(stageConfig: StageConfig): PlatformType {
+  const rand = currentRandom();
+  const normalRatio = stageConfig.normalRatio || 0;
+  const iceRatio = stageConfig.iceRatio || 0;
+  const caterpillarRatio = stageConfig.caterpillarRatio || 0;
+
+  if (rand < normalRatio) {
+    return 'normal';
+  } else if (rand < normalRatio + iceRatio) {
+    return 'ice';
+  } else if (rand < normalRatio + iceRatio + caterpillarRatio) {
+    return 'caterpillar';
+  }
+  return 'normal'; // デフォルト
+}
+
 // 床を生成
 export function generatePlatforms(stageConfig: StageConfig): Platform[] {
   const platforms: Platform[] = [];
@@ -61,9 +78,8 @@ export function generatePlatforms(stageConfig: StageConfig): Platform[] {
     const blockCount = randomInt(stageConfig.blockCountMin, stageConfig.blockCountMax);
     const width = blockCount * blockSize;
 
-    // 氷の床かどうかを判定
-    const isIce = currentRandom() < stageConfig.iceRatio;
-    const type: PlatformType = isIce ? 'ice' : 'normal';
+    // 床のタイプを決定
+    const type = determinePlatformType(stageConfig);
 
     // 位置を計算（到達可能な範囲内）
     const maxHorizontalJump = CONFIG.CANVAS_WIDTH * 0.5;
@@ -74,7 +90,15 @@ export function generatePlatforms(stageConfig: StageConfig): Platform[] {
     const xRaw = randomInRange(minX, maxX);
     const x = Math.round(xRaw / blockSize) * blockSize;
 
-    platforms.push({ x, y: currentY, width, type, blockCount });
+    const platform: Platform = { x, y: currentY, width, type, blockCount };
+
+    // キャタピラ床の場合、追加プロパティを設定
+    if (type === 'caterpillar') {
+      platform.caterpillarOffset = 0;
+      platform.caterpillarDirection = currentRandom() < 0.5 ? 1 : -1;
+    }
+
+    platforms.push(platform);
     lastX = x + width / 2;
   }
 
@@ -93,6 +117,58 @@ export function generateMoon(platforms: Platform[]): Moon {
     y: highestPlatform.y - 200,
     size: CONFIG.MOON.SIZE,
   };
+}
+
+// うなぎを生成
+export function generateEels(stageConfig: StageConfig, platforms: Platform[]): Eel[] {
+  const eels: Eel[] = [];
+  const eelCount = stageConfig.eelCount || 0;
+
+  if (eelCount === 0) return eels;
+
+  // 地面と最上部の床を除外した床から配置位置を決定
+  const floatingPlatforms = platforms.slice(1); // 地面を除外
+  if (floatingPlatforms.length < 2) return eels;
+
+  // 高さ方向に均等に分散させる
+  const lowestY = floatingPlatforms[0].y;
+  const highestY = floatingPlatforms[floatingPlatforms.length - 1].y;
+  const heightRange = lowestY - highestY;
+
+  for (let i = 0; i < eelCount; i++) {
+    // 高さを均等に分散（上から順に配置）
+    const sectionHeight = heightRange / (eelCount + 1);
+    const targetY = highestY + sectionHeight * (i + 1);
+
+    // その高さ付近の床を探す
+    let nearestPlatform = floatingPlatforms[0];
+    let minDistance = Math.abs(floatingPlatforms[0].y - targetY);
+
+    for (const platform of floatingPlatforms) {
+      const distance = Math.abs(platform.y - targetY);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestPlatform = platform;
+      }
+    }
+
+    // 床の上、少し横にずらした位置に配置
+    const eelX = randomInRange(
+      Math.max(20, nearestPlatform.x - 50),
+      Math.min(CONFIG.CANVAS_WIDTH - CONFIG.EEL.SIZE - 20, nearestPlatform.x + nearestPlatform.width + 50)
+    );
+    const eelY = nearestPlatform.y - randomInRange(100, 200);
+
+    eels.push({
+      x: eelX,
+      y: eelY,
+      size: CONFIG.EEL.SIZE,
+      isCollected: false,
+      rotation: currentRandom() * Math.PI * 2,
+    });
+  }
+
+  return eels;
 }
 
 // 水を初期化（画面外から開始）

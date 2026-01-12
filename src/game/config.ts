@@ -64,82 +64,200 @@ export const CONFIG = {
     COLOR_LIGHT: '#B0E0E6',
   },
 
+  // キャタピラ床設定
+  CATERPILLAR: {
+    SPEED: 1.5, // キャタピラの移動速度
+    COLOR_LIGHT: '#A0A0A0',
+    COLOR_DARK: '#606060',
+    SEGMENT_WIDTH: 7, // セグメントの幅
+  },
+
+  // うなぎ設定
+  EEL: {
+    SIZE: 32, // うなぎのサイズ
+    SUPER_JUMP_VELOCITY: 32.4, // 通常MAXの2倍 (16.2 * 2)
+    COLOR: '#FF6B6B', // 薄い赤色
+    COLOR_LIGHT: '#FF8E8E',
+    ROTATION_SPEED: 0.02, // 回転速度
+  },
+
   // ジャンプの横移動係数
   HORIZONTAL_FACTOR: 0.7, // 横移動距離を0.7倍に
 
   // ステージ設定
-  // 新ジャンプ高さ ≈ 16.2^2 / (2 * 0.35) ≈ 375px
-  // ステージ高さ = 12ジャンプ分 ≈ 4500px ≈ 5.3画面分
+  // 高さ単位: 10 = MAXジャンプ1回分 (約375px)
+  // totalHeight = stageHeight / 22.5 (画面数に変換)
+  // platformCount = stageHeight / 10 (床数)
   STAGES: [
     {
       id: 1,
-      name: 'Tutorial',
-      totalHeight: 5.3,
+      name: 'Stage 1',
+      totalHeight: 5.3, // 高さ120 = 12床分
       platformCount: 12,
-      blockCountMin: 10,
+      blockCountMin: 10, // 簡単
       blockCountMax: 14,
-      gapMin: 200,
-      gapMax: 280,
+      gapMin: 180, // 簡単
+      gapMax: 240,
+      normalRatio: 1.0,
       iceRatio: 0,
-      waterSpeed: 0.6, // 0.3 * 2 = 0.6（2倍速）
+      caterpillarRatio: 0,
+      eelCount: 0,
+      waterSpeed: 0.6,
       waterDelay: 8000,
       baseTime: 45,
     },
     {
       id: 2,
-      name: 'Challenge',
-      totalHeight: 5.3,
+      name: 'Stage 2',
+      totalHeight: 5.3, // 高さ120
       platformCount: 12,
-      blockCountMin: 6,
-      blockCountMax: 12,
-      gapMin: 220,
-      gapMax: 300,
+      blockCountMin: 4, // 難しい
+      blockCountMax: 8,
+      gapMin: 240, // 難しい
+      gapMax: 320,
+      normalRatio: 1.0,
       iceRatio: 0,
-      waterSpeed: 0.8, // 0.4 * 2 = 0.8
+      caterpillarRatio: 0,
+      eelCount: 0,
+      waterSpeed: 0.8,
       waterDelay: 6000,
       baseTime: 50,
     },
     {
       id: 3,
-      name: 'Ice Intro',
-      totalHeight: 5.3,
+      name: 'Stage 3',
+      totalHeight: 5.3, // 高さ120
       platformCount: 12,
-      blockCountMin: 6,
+      blockCountMin: 6, // 普通
       blockCountMax: 10,
-      gapMin: 200,
-      gapMax: 280,
-      iceRatio: 0.3,
-      waterSpeed: 1.0, // 0.5 * 2 = 1.0
+      gapMin: 180, // 簡単
+      gapMax: 240,
+      normalRatio: 0.5,
+      iceRatio: 0.5,
+      caterpillarRatio: 0,
+      eelCount: 0,
+      waterSpeed: 1.0,
       waterDelay: 5000,
       baseTime: 55,
     },
     {
       id: 4,
-      name: 'Slippery',
-      totalHeight: 5.3,
+      name: 'Stage 4',
+      totalHeight: 5.3, // 高さ120
       platformCount: 12,
-      blockCountMin: 5,
-      blockCountMax: 9,
-      gapMin: 180,
-      gapMax: 260,
-      iceRatio: 0.6,
-      waterSpeed: 1.1, // 0.55 * 2 = 1.1
+      blockCountMin: 4, // 難しい
+      blockCountMax: 8,
+      gapMin: 200, // 普通
+      gapMax: 280,
+      normalRatio: 0.3,
+      iceRatio: 0.7,
+      caterpillarRatio: 0,
+      eelCount: 0,
+      waterSpeed: 1.1,
       waterDelay: 5000,
       baseTime: 60,
     },
     {
       id: 5,
-      name: 'Frozen',
-      totalHeight: 5.3,
+      name: 'Stage 5',
+      totalHeight: 5.3, // 高さ120
       platformCount: 12,
-      blockCountMin: 4,
+      blockCountMin: 4, // 難しい
       blockCountMax: 8,
-      gapMin: 160,
-      gapMax: 240,
+      gapMin: 240, // 難しい
+      gapMax: 320,
+      normalRatio: 0,
       iceRatio: 1.0,
-      waterSpeed: 1.4, // 0.7 * 2 = 1.4
+      caterpillarRatio: 0,
+      eelCount: 0,
+      waterSpeed: 1.4,
       waterDelay: 3000,
       baseTime: 65,
+    },
+    {
+      id: 6,
+      name: 'Stage 6',
+      totalHeight: 7.1, // 高さ160
+      platformCount: 16,
+      blockCountMin: 6, // 普通
+      blockCountMax: 10,
+      gapMin: 200, // 普通
+      gapMax: 280,
+      normalRatio: 0.8,
+      iceRatio: 0.2,
+      caterpillarRatio: 0,
+      eelCount: 3,
+      waterSpeed: 1.0,
+      waterDelay: 6000,
+      baseTime: 70,
+    },
+    {
+      id: 7,
+      name: 'Stage 7',
+      totalHeight: 8.0, // 高さ180
+      platformCount: 18,
+      blockCountMin: 4, // 難しい
+      blockCountMax: 8,
+      gapMin: 200, // 普通
+      gapMax: 280,
+      normalRatio: 0.6,
+      iceRatio: 0.4,
+      caterpillarRatio: 0,
+      eelCount: 5,
+      waterSpeed: 1.2,
+      waterDelay: 5000,
+      baseTime: 80,
+    },
+    {
+      id: 8,
+      name: 'Stage 8',
+      totalHeight: 6.2, // 高さ140
+      platformCount: 14,
+      blockCountMin: 6, // 普通
+      blockCountMax: 10,
+      gapMin: 200, // 普通
+      gapMax: 280,
+      normalRatio: 0.4,
+      iceRatio: 0.4,
+      caterpillarRatio: 0.2,
+      eelCount: 2,
+      waterSpeed: 1.3,
+      waterDelay: 5000,
+      baseTime: 65,
+    },
+    {
+      id: 9,
+      name: 'Stage 9',
+      totalHeight: 7.1, // 高さ160
+      platformCount: 16,
+      blockCountMin: 4, // 難しい
+      blockCountMax: 8,
+      gapMin: 200, // 普通
+      gapMax: 280,
+      normalRatio: 0.2,
+      iceRatio: 0.4,
+      caterpillarRatio: 0.4,
+      eelCount: 2,
+      waterSpeed: 1.4,
+      waterDelay: 4000,
+      baseTime: 75,
+    },
+    {
+      id: 10,
+      name: 'Stage 10',
+      totalHeight: 7.1, // 高さ160
+      platformCount: 16,
+      blockCountMin: 4, // 難しい
+      blockCountMax: 8,
+      gapMin: 240, // 難しい
+      gapMax: 320,
+      normalRatio: 0,
+      iceRatio: 0.4,
+      caterpillarRatio: 0.6,
+      eelCount: 2,
+      waterSpeed: 1.6,
+      waterDelay: 3000,
+      baseTime: 80,
     },
   ],
 

@@ -1,5 +1,5 @@
 import { CONFIG } from './config';
-import type { GameState, Star, Platform } from './types';
+import type { GameState, Star, Platform, Eel } from './types';
 
 // 画像キャッシュ
 const imageCache: Map<string, HTMLImageElement> = new Map();
@@ -117,10 +117,19 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
     // 画面外はスキップ
     if (screenY < -CONFIG.PLATFORM.HEIGHT || screenY > CONFIG.CANVAS_HEIGHT) return;
 
-    // 氷の床か通常の床かで色を変える
+    // 床のタイプによって色を変える
     const isIce = platform.type === 'ice';
-    const mainColor = isIce ? CONFIG.ICE.COLOR : CONFIG.COLORS.PLATFORM;
-    const lightColor = isIce ? CONFIG.ICE.COLOR_LIGHT : CONFIG.COLORS.PLATFORM_LIGHT;
+    const isCaterpillar = platform.type === 'caterpillar';
+    let mainColor = CONFIG.COLORS.PLATFORM;
+    let lightColor = CONFIG.COLORS.PLATFORM_LIGHT;
+
+    if (isIce) {
+      mainColor = CONFIG.ICE.COLOR;
+      lightColor = CONFIG.ICE.COLOR_LIGHT;
+    } else if (isCaterpillar) {
+      mainColor = CONFIG.CATERPILLAR.COLOR_DARK;
+      lightColor = CONFIG.CATERPILLAR.COLOR_LIGHT;
+    }
 
     // ブロック単位で描画
     for (let i = 0; i < platform.blockCount; i++) {
@@ -137,6 +146,36 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
       // グリッド線（ブロック間の区切り）
       ctx.fillStyle = CONFIG.COLORS.BACKGROUND;
       ctx.fillRect(blockX + blockSize - 1, screenY, 1, CONFIG.PLATFORM.HEIGHT);
+    }
+
+    // キャタピラの場合は上部にベルトを描画
+    if (isCaterpillar) {
+      const segmentWidth = CONFIG.CATERPILLAR.SEGMENT_WIDTH;
+      const offset = (platform.caterpillarOffset || 0) % (segmentWidth * 2);
+      const direction = platform.caterpillarDirection || 1;
+
+      for (let x = platform.x - segmentWidth; x < platform.x + platform.width + segmentWidth; x += segmentWidth) {
+        const adjustedX = x + (direction > 0 ? offset : -offset);
+        if (adjustedX < platform.x || adjustedX + segmentWidth > platform.x + platform.width) continue;
+
+        const segmentIndex = Math.floor((adjustedX - platform.x) / segmentWidth);
+        ctx.fillStyle = segmentIndex % 2 === 0 ? CONFIG.CATERPILLAR.COLOR_LIGHT : CONFIG.CATERPILLAR.COLOR_DARK;
+        ctx.fillRect(adjustedX, screenY, segmentWidth - 1, 3);
+      }
+
+      // 方向を示す矢印
+      ctx.fillStyle = '#FFFFFF';
+      const arrowX = platform.x + platform.width / 2;
+      const arrowY = screenY + 7;
+      if (direction > 0) {
+        ctx.fillRect(arrowX + 2, arrowY, 4, 2);
+        ctx.fillRect(arrowX + 4, arrowY - 1, 2, 1);
+        ctx.fillRect(arrowX + 4, arrowY + 2, 2, 1);
+      } else {
+        ctx.fillRect(arrowX - 6, arrowY, 4, 2);
+        ctx.fillRect(arrowX - 6, arrowY - 1, 2, 1);
+        ctx.fillRect(arrowX - 6, arrowY + 2, 2, 1);
+      }
     }
   });
 }
@@ -256,6 +295,82 @@ export function drawWater(ctx: CanvasRenderingContext2D, state: GameState) {
       ctx.fillRect(x, pixelY, foamSize, foamSize);
     }
   }
+}
+
+// うなぎを描画（円形に曲がったうなぎ）
+export function drawEels(ctx: CanvasRenderingContext2D, eels: Eel[], cameraY: number) {
+  eels.forEach(eel => {
+    if (eel.isCollected) return; // 取得済みはスキップ
+
+    const screenY = eel.y - cameraY;
+
+    // 画面外はスキップ
+    if (screenY < -eel.size || screenY > CONFIG.CANVAS_HEIGHT + eel.size) return;
+
+    const centerX = eel.x + eel.size / 2;
+    const centerY = screenY + eel.size / 2;
+    const radius = eel.size / 2 - 4;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(eel.rotation);
+
+    // うなぎの体（円形に曲がった形）
+    ctx.strokeStyle = CONFIG.EEL.COLOR;
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 1.7);
+    ctx.stroke();
+
+    // うなぎの体のハイライト
+    ctx.strokeStyle = CONFIG.EEL.COLOR_LIGHT;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0.2, Math.PI * 1.5);
+    ctx.stroke();
+
+    // うなぎの頭（開始点）
+    const headAngle = 0;
+    const headX = Math.cos(headAngle) * radius;
+    const headY = Math.sin(headAngle) * radius;
+    ctx.fillStyle = CONFIG.EEL.COLOR;
+    ctx.beginPath();
+    ctx.arc(headX, headY, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 目（白）
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(headX + 2, headY - 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 瞳
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(headX + 2.5, headY - 1.5, 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 尻尾（終了点）
+    const tailAngle = Math.PI * 1.7;
+    const tailX = Math.cos(tailAngle) * radius;
+    const tailY = Math.sin(tailAngle) * radius;
+    ctx.fillStyle = CONFIG.EEL.COLOR;
+    ctx.beginPath();
+    ctx.moveTo(tailX, tailY);
+    ctx.lineTo(tailX - 8, tailY + 4);
+    ctx.lineTo(tailX - 8, tailY - 4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+
+    // キラキラエフェクト（浮遊感）
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    const sparkleOffset = Math.sin(Date.now() * 0.01 + eel.x) * 3;
+    ctx.fillRect(eel.x + 4, screenY + 4 + sparkleOffset, 2, 2);
+    ctx.fillRect(eel.x + eel.size - 6, screenY + eel.size - 8 - sparkleOffset, 2, 2);
+  });
 }
 
 // HUDを描画

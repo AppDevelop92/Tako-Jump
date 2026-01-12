@@ -29,7 +29,7 @@ export interface Tako {
 }
 
 // 床のタイプ
-export type PlatformType = 'normal' | 'ice';
+export type PlatformType = 'normal' | 'ice' | 'caterpillar';
 
 // 床
 export interface Platform {
@@ -38,6 +38,17 @@ export interface Platform {
   width: number;
   type: PlatformType;
   blockCount: number; // ブロック数（整数）
+  caterpillarOffset?: number; // キャタピラのアニメーションオフセット
+  caterpillarDirection?: 1 | -1; // キャタピラの移動方向
+}
+
+// うなぎ（スーパージャンプアイテム）
+export interface Eel {
+  x: number;
+  y: number;
+  size: number;
+  isCollected: boolean; // 取得済みかどうか
+  rotation: number; // 回転アニメーション用
 }
 
 // 月（ゴール）
@@ -80,6 +91,7 @@ export interface GameState {
   elapsedTime: number;
   tako: Tako;
   platforms: Platform[];
+  eels: Eel[];
   moon: Moon;
   water: Water;
   camera: Camera;
