@@ -72,9 +72,8 @@ export function checkPlatformCollision(
       // 通常床: x速度は0
       let newVelocityX = 0;
       if (isIce) {
-        // 着地角度に基づいて滑り速度を決定
-        // 着地時のx速度をそのまま使用（一度滑り出したら速度一定）
-        newVelocityX = tako.velocity.x * CONFIG.ICE.LANDING_SPEED_FACTOR;
+        // 着地時の水平速度をそのまま滑り速度に（摩擦0、入射角に比例）
+        newVelocityX = tako.velocity.x;
       } else if (isCaterpillar) {
         // キャタピラ床では速度0（キャタピラによる移動は別処理）
         newVelocityX = 0;

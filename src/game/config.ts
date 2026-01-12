@@ -58,8 +58,7 @@ export const CONFIG = {
 
   // 氷の足場設定
   ICE: {
-    FRICTION: 0.98, // 毎フレームの減衰率
-    LANDING_SPEED_FACTOR: 0.7, // 着地時の滑り速度係数（0.7倍に）
+    // 摩擦0: 着地時の水平速度がそのまま滑り速度になる（入射角に比例）
     COLOR: '#87CEEB',
     COLOR_LIGHT: '#B0E0E6',
   },
