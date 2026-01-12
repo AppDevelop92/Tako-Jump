@@ -8,18 +8,19 @@ export const CONFIG = {
   TAKO: {
     WIDTH: 29, // 28 * 1.05
     HEIGHT: 35, // 33 * 1.05
-    GRAVITY: 0.38, // 重力加速度
+    GRAVITY: 0.36, // 重力加速度
     MAX_FALL_SPEED: 10.5,
-    AIR_CONTROL: 0.3,
+    AIR_CONTROL: 2.5, // 空中での横移動強度（チャージ中以外）
+    AIR_CONTROL_CHARGING: 0.05, // チャージ中の空中横移動強度
   },
 
   // ジャンプ
   JUMP: {
     MAX_CHARGE_TIME: 1000,
-    MAX_VELOCITY: 16.2, // 18 * 0.9 = 16.2（ジャンプ速度を0.9倍に）
-    MIN_VELOCITY: 5.4, // 6 * 0.9 = 5.4
-    MIN_ANGLE: Math.PI * 0.25,
-    MAX_ANGLE: Math.PI * 0.75,
+    MAX_VELOCITY: 15.8, // 重力0.36で最大高さ345px維持
+    MIN_VELOCITY: 5.3, // MIN_VELOCITY / MAX比率維持
+    MIN_ANGLE: Math.PI * (50 / 180), // 50°
+    MAX_ANGLE: Math.PI * (130 / 180), // 130°
   },
 
   // 床（ブロックはタコ幅の半分の正方形）

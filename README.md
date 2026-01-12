@@ -48,20 +48,30 @@ tako-jump/
 |-----------|--------|------|
 | `WIDTH` | 29 | タコの幅（px） |
 | `HEIGHT` | 35 | タコの高さ（px） |
-| `GRAVITY` | 0.38 | 重力加速度（毎フレーム） |
+| `GRAVITY` | 0.36 | 重力加速度（毎フレーム） |
 | `MAX_FALL_SPEED` | 10.5 | 最大落下速度 |
-| `AIR_CONTROL` | 0.3 | 空中での微調整強度 |
+| `AIR_CONTROL` | 2.5 | 空中での横移動強度（チャージ中以外） |
+| `AIR_CONTROL_CHARGING` | 0.05 | チャージ中の空中横移動強度 |
+
+**空中操作仕様**:
+- ジャンプ中（非チャージ時）: `AIR_CONTROL × HORIZONTAL_FACTOR` で横移動可能
+- チャージ中: `AIR_CONTROL_CHARGING × HORIZONTAL_FACTOR` で微小な横移動のみ可能
 
 ### Jump (ジャンプ)
 | パラメータ | 現在値 | 説明 |
 |-----------|--------|------|
 | `MAX_CHARGE_TIME` | 1000 | 最大チャージ時間（ms） |
-| `MAX_VELOCITY` | 16.2 | 最大ジャンプ速度 |
-| `MIN_VELOCITY` | 5.4 | 最小ジャンプ速度 |
-| `MIN_ANGLE` | π×0.25 | 最小ジャンプ角度（45°） |
-| `MAX_ANGLE` | π×0.75 | 最大ジャンプ角度（135°） |
+| `MAX_VELOCITY` | 15.8 | 最大ジャンプ速度 |
+| `MIN_VELOCITY` | 5.3 | 最小ジャンプ速度 |
+| `MIN_ANGLE` | 50° | 最小ジャンプ角度 |
+| `MAX_ANGLE` | 130° | 最大ジャンプ角度 |
 
-**最大ジャンプ高さ**: 約345px（計算式: MAX_VELOCITY² / (2 × GRAVITY) = 16.2² / 0.76）
+**最大ジャンプ高さ**: 約345px（計算式: MAX_VELOCITY² / (2 × GRAVITY) = 15.8² / 0.72）
+
+**ジャンプ制限**:
+- 地上にいる時のみジャンプ可能
+- 空中ではチャージできるがジャンプは発動しない（チャージ解除のみ）
+- 足場から落下した場合もジャンプ不可
 
 ### Platform (足場)
 | パラメータ | 現在値 | 説明 |
@@ -171,7 +181,7 @@ tako-jump/
 - `MAX_VELOCITY` を上げる → より高く跳べる
 - `HORIZONTAL_FACTOR` を調整 → 横移動距離を変更
 
-**注意**: `gapMax` / `firstPlatformGap` は最大ジャンプ高さ（345px）を超えないようにする
+**注意**: `gapMax` / `firstPlatformGap` は最大ジャンプ高さ（365px）を超えないようにする
 
 ## Key Mechanics
 

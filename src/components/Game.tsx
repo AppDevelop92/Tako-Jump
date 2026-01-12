@@ -27,6 +27,7 @@ import {
   applyIceFriction,
   applyCaterpillarMovement,
   checkEelCollision,
+  loadPlatformImages,
 } from '../game';
 import type { Platform, GameState } from '../game';
 import { useGameLoop, useKeyboardInput } from '../hooks';
@@ -131,8 +132,9 @@ export function Game() {
 
       const loaded: { [key: string]: HTMLImageElement } = {};
 
-      await Promise.all(
-        Object.entries(imageMap).map(([key, src]) =>
+      await Promise.all([
+        // タコ画像をロード
+        ...Object.entries(imageMap).map(([key, src]) =>
           new Promise<void>((resolve) => {
             const img = new Image();
             img.onload = () => {
@@ -142,8 +144,10 @@ export function Game() {
             img.onerror = () => resolve();
             img.src = src;
           })
-        )
-      );
+        ),
+        // 足場画像をロード
+        loadPlatformImages(),
+      ]);
 
       setImages(loaded);
       setImagesLoaded(true);
@@ -265,22 +269,24 @@ export function Game() {
         if (tako.isGrounded && !onIcePlatform && (keyboard.arrowDirection.x !== 0 || keyboard.arrowDirection.y !== 0)) {
           jumpDirectionRef.current = { x: keyboard.arrowDirection.x, y: keyboard.arrowDirection.y };
         }
-        if (tako.airChargeLockedVelocityX !== null) {
-          tako.velocity.x = tako.airChargeLockedVelocityX;
+        // 空中チャージ中は微小な横移動のみ許可
+        if (!tako.isGrounded && keyboard.arrowDirection.x !== 0) {
+          tako.velocity.x += keyboard.arrowDirection.x * CONFIG.TAKO.AIR_CONTROL_CHARGING * CONFIG.HORIZONTAL_FACTOR * deltaTime * 60;
         }
       }
 
       // ジャンプ発動
       const wasCharging = tako.chargeStartTime !== null;
-      const wasAirCharge = tako.airChargeLockedVelocityX !== null;
       const isOnIce = currentPlatformRef.current?.type === 'ice';
       if (keyboard.spaceJustReleased && wasCharging && tako.state !== 'dead') {
-        if (wasAirCharge) {
+        // 空中ではジャンプ不可（チャージ解除のみ）
+        if (!tako.isGrounded) {
           tako.state = 'jumping';
           tako.chargeStartTime = null;
           tako.chargeRatio = 0;
           tako.airChargeLockedVelocityX = null;
         } else {
+          // 地上にいる場合のみジャンプ発動
           // 氷の上で滑っている場合は慣性を適用
           const slidingVelocity = isOnIce ? tako.velocity.x : 0;
           const { vx, vy, facingRight } = calculateKeyboardJump(
@@ -471,6 +477,50 @@ export function Game() {
 
   useGameLoop(updateGame, state.screen === 'playing');
 
+  // ポーズ機能
+  const pauseGame = useCallback(() => {
+    if (state.screen === 'playing') {
+      if (waterDelayTimerRef.current) {
+        clearTimeout(waterDelayTimerRef.current);
+      }
+      setState(prev => ({ ...prev, screen: 'paused' }));
+    }
+  }, [state.screen]);
+
+  const resumeGame = useCallback(() => {
+    if (state.screen === 'paused') {
+      const stageConfig = CONFIG.STAGES[state.stage - 1];
+      // 水がまだ上昇中でなければタイマーを再開
+      if (!state.water.isRising) {
+        waterDelayTimerRef.current = window.setTimeout(() => {
+          setState(prev => ({
+            ...prev,
+            water: { ...prev.water, isRising: true },
+          }));
+        }, stageConfig.waterDelay);
+      }
+      setState(prev => ({ ...prev, screen: 'playing' }));
+    }
+  }, [state.screen, state.stage, state.water.isRising]);
+
+  const restartFromBeginning = useCallback(() => {
+    if (waterDelayTimerRef.current) {
+      clearTimeout(waterDelayTimerRef.current);
+    }
+    const newState = createInitialState();
+    newState.screen = 'playing';
+    newState.stageStartTime = performance.now();
+    setState(newState);
+
+    const stageConfig = CONFIG.STAGES[0];
+    waterDelayTimerRef.current = window.setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        water: { ...prev.water, isRising: true },
+      }));
+    }, stageConfig.waterDelay);
+  }, []);
+
   // 描画
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -487,8 +537,19 @@ export function Game() {
     drawWater(ctx, state);
     drawTako(ctx, state, images);
 
-    if (state.screen === 'playing') {
+    if (state.screen === 'playing' || state.screen === 'paused') {
       drawHUD(ctx, state);
+
+      // ポーズボタン（左上）
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(CONFIG.CANVAS_WIDTH - 50, 10, 40, 40);
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(CONFIG.CANVAS_WIDTH - 50, 10, 40, 40);
+      // ポーズアイコン（||）
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(CONFIG.CANVAS_WIDTH - 42, 18, 8, 24);
+      ctx.fillRect(CONFIG.CANVAS_WIDTH - 26, 18, 8, 24);
 
       if (state.tako.state === 'charging' && state.tako.chargeRatio > 0) {
         const barWidth = 60;
@@ -619,9 +680,51 @@ export function Game() {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText('PRESS SPACE', CONFIG.CANVAS_WIDTH / 2, 560);
     }
+
+    // ポーズ画面
+    if (state.screen === 'paused') {
+      // 半透明オーバーレイ
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+
+      ctx.fillStyle = CONFIG.COLORS.UI_BG;
+      ctx.fillRect(60, 280, CONFIG.CANVAS_WIDTH - 120, 280);
+      ctx.strokeStyle = CONFIG.COLORS.UI_BORDER;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(60, 280, CONFIG.CANVAS_WIDTH - 120, 280);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '16px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', CONFIG.CANVAS_WIDTH / 2, 330);
+
+      ctx.font = '12px "Press Start 2P", monospace';
+      ctx.fillText('CONTINUE', CONFIG.CANVAS_WIDTH / 2, 410);
+      ctx.fillText('RESTART', CONFIG.CANVAS_WIDTH / 2, 480);
+
+      ctx.font = '10px "Press Start 2P", monospace';
+      ctx.fillStyle = '#AAAAAA';
+      ctx.fillText('TAP TO SELECT', CONFIG.CANVAS_WIDTH / 2, 530);
+    }
   }, [state, images, imagesLoaded]);
 
-  // スペースキーでの画面遷移（プレイ中以外）- ポーリングでチェック
+  // スペースキーでの画面遷移・ESCキーでポーズ
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESCキーでポーズ/リジューム
+      if (e.key === 'Escape') {
+        if (state.screen === 'playing') {
+          pauseGame();
+        } else if (state.screen === 'paused') {
+          resumeGame();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.screen, pauseGame, resumeGame]);
+
   useEffect(() => {
     if (state.screen === 'playing') return;
 
@@ -643,6 +746,38 @@ export function Game() {
     return () => clearInterval(intervalId);
   }, [state.screen, startGame, nextStage, returnToTitle]);
 
+  // クリック/タッチハンドラー
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    // プレイ中: ポーズボタンのクリック判定
+    if (state.screen === 'playing') {
+      if (x >= CONFIG.CANVAS_WIDTH - 50 && x <= CONFIG.CANVAS_WIDTH - 10 &&
+          y >= 10 && y <= 50) {
+        pauseGame();
+      }
+    }
+
+    // ポーズ中: メニュー選択
+    if (state.screen === 'paused') {
+      // CONTINUE (y: 390-430)
+      if (x >= 60 && x <= CONFIG.CANVAS_WIDTH - 60 && y >= 390 && y <= 430) {
+        resumeGame();
+      }
+      // RESTART (y: 460-500)
+      if (x >= 60 && x <= CONFIG.CANVAS_WIDTH - 60 && y >= 460 && y <= 500) {
+        restartFromBeginning();
+      }
+    }
+  }, [state.screen, pauseGame, resumeGame, restartFromBeginning]);
+
   return (
     <div className="w-full h-full flex items-center justify-center bg-[#2D2A5A]">
       <canvas
@@ -652,6 +787,7 @@ export function Game() {
         className="max-w-full max-h-full"
         style={{ imageRendering: 'pixelated' }}
         tabIndex={0}
+        onClick={handleCanvasClick}
       />
     </div>
   );

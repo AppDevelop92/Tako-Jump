@@ -4,6 +4,49 @@ import type { GameState, Star, Platform, Eel } from './types';
 // 画像キャッシュ
 const imageCache: Map<string, HTMLImageElement> = new Map();
 
+// 足場画像のインポート
+import platformNormalSrc from '../assets/platform_normal.png';
+import platformIceSrc from '../assets/platform_ice.png';
+import platformCaterpillarSrc from '../assets/platform_caterpillar.png';
+
+// 足場画像のキャッシュ
+let platformImages: {
+  normal: HTMLImageElement | null;
+  ice: HTMLImageElement | null;
+  caterpillar: HTMLImageElement | null;
+} = {
+  normal: null,
+  ice: null,
+  caterpillar: null,
+};
+
+// 足場画像の1ブロックあたりのサイズ（ソース画像内）
+const PLATFORM_IMAGE_INFO = {
+  normal: { width: 505, height: 89, blockCount: 6 },
+  ice: { width: 522, height: 89, blockCount: 6 },
+  caterpillar: { width: 667, height: 128, blockCount: 6 },
+};
+
+// 足場画像をロード
+export async function loadPlatformImages(): Promise<void> {
+  const loadImg = (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  };
+
+  const [normal, ice, caterpillar] = await Promise.all([
+    loadImg(platformNormalSrc),
+    loadImg(platformIceSrc),
+    loadImg(platformCaterpillarSrc),
+  ]);
+
+  platformImages = { normal, ice, caterpillar };
+}
+
 // 画像をロード
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -115,66 +158,78 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
 
     // 浮遊床の描画
     // 画面外はスキップ
-    if (screenY < -CONFIG.PLATFORM.HEIGHT || screenY > CONFIG.CANVAS_HEIGHT) return;
+    if (screenY < -CONFIG.PLATFORM.HEIGHT - 10 || screenY > CONFIG.CANVAS_HEIGHT) return;
 
-    // 床のタイプによって色を変える
-    const isIce = platform.type === 'ice';
-    const isCaterpillar = platform.type === 'caterpillar';
-    let mainColor = CONFIG.COLORS.PLATFORM;
-    let lightColor = CONFIG.COLORS.PLATFORM_LIGHT;
+    // 画像を使用して描画
+    const platformType = platform.type || 'normal';
+    const img = platformImages[platformType];
+    const imgInfo = PLATFORM_IMAGE_INFO[platformType];
 
-    if (isIce) {
-      mainColor = CONFIG.ICE.COLOR;
-      lightColor = CONFIG.ICE.COLOR_LIGHT;
-    } else if (isCaterpillar) {
-      mainColor = CONFIG.CATERPILLAR.COLOR_DARK;
-      lightColor = CONFIG.CATERPILLAR.COLOR_LIGHT;
-    }
+    if (img && imgInfo) {
+      // 画像からブロックをタイル描画
+      const srcBlockWidth = imgInfo.width / imgInfo.blockCount;
+      const srcBlockHeight = imgInfo.height;
+      const destBlockWidth = blockSize;
+      const destBlockHeight = CONFIG.PLATFORM.HEIGHT;
 
-    // ブロック単位で描画
-    for (let i = 0; i < platform.blockCount; i++) {
-      const blockX = platform.x + i * blockSize;
+      // キャタピラは少し高く描画（トラック部分を含む）
+      const destHeight = platformType === 'caterpillar'
+        ? destBlockHeight * 1.5
+        : destBlockHeight;
+      const yOffset = platformType === 'caterpillar' ? -destBlockHeight * 0.3 : 0;
 
-      // ブロック本体
-      ctx.fillStyle = mainColor;
-      ctx.fillRect(blockX, screenY, blockSize, CONFIG.PLATFORM.HEIGHT);
+      for (let i = 0; i < platform.blockCount; i++) {
+        const blockX = platform.x + i * destBlockWidth;
+        // ソース画像からブロックを選択（ループ）
+        const srcBlockIndex = i % imgInfo.blockCount;
+        const srcX = srcBlockIndex * srcBlockWidth;
 
-      // 上辺のハイライト
-      ctx.fillStyle = lightColor;
-      ctx.fillRect(blockX, screenY, blockSize, 2);
-
-      // グリッド線（ブロック間の区切り）
-      ctx.fillStyle = CONFIG.COLORS.BACKGROUND;
-      ctx.fillRect(blockX + blockSize - 1, screenY, 1, CONFIG.PLATFORM.HEIGHT);
-    }
-
-    // キャタピラの場合は上部にベルトを描画
-    if (isCaterpillar) {
-      const segmentWidth = CONFIG.CATERPILLAR.SEGMENT_WIDTH;
-      const offset = (platform.caterpillarOffset || 0) % (segmentWidth * 2);
-      const direction = platform.caterpillarDirection || 1;
-
-      for (let x = platform.x - segmentWidth; x < platform.x + platform.width + segmentWidth; x += segmentWidth) {
-        const adjustedX = x + (direction > 0 ? offset : -offset);
-        if (adjustedX < platform.x || adjustedX + segmentWidth > platform.x + platform.width) continue;
-
-        const segmentIndex = Math.floor((adjustedX - platform.x) / segmentWidth);
-        ctx.fillStyle = segmentIndex % 2 === 0 ? CONFIG.CATERPILLAR.COLOR_LIGHT : CONFIG.CATERPILLAR.COLOR_DARK;
-        ctx.fillRect(adjustedX, screenY, segmentWidth - 1, 3);
+        ctx.drawImage(
+          img,
+          srcX, 0, srcBlockWidth, srcBlockHeight,  // ソース
+          blockX, screenY + yOffset, destBlockWidth, destHeight  // デスト
+        );
       }
 
-      // 方向を示す矢印
-      ctx.fillStyle = '#FFFFFF';
-      const arrowX = platform.x + platform.width / 2;
-      const arrowY = screenY + 7;
-      if (direction > 0) {
-        ctx.fillRect(arrowX + 2, arrowY, 4, 2);
-        ctx.fillRect(arrowX + 4, arrowY - 1, 2, 1);
-        ctx.fillRect(arrowX + 4, arrowY + 2, 2, 1);
-      } else {
-        ctx.fillRect(arrowX - 6, arrowY, 4, 2);
-        ctx.fillRect(arrowX - 6, arrowY - 1, 2, 1);
-        ctx.fillRect(arrowX - 6, arrowY + 2, 2, 1);
+      // キャタピラの方向を示す矢印
+      if (platformType === 'caterpillar') {
+        const direction = platform.caterpillarDirection || 1;
+        ctx.fillStyle = '#FFFFFF';
+        const arrowX = platform.x + platform.width / 2;
+        const arrowY = screenY + CONFIG.PLATFORM.HEIGHT / 2;
+        if (direction > 0) {
+          ctx.fillRect(arrowX + 2, arrowY, 6, 3);
+          ctx.fillRect(arrowX + 6, arrowY - 2, 3, 2);
+          ctx.fillRect(arrowX + 6, arrowY + 3, 3, 2);
+        } else {
+          ctx.fillRect(arrowX - 8, arrowY, 6, 3);
+          ctx.fillRect(arrowX - 9, arrowY - 2, 3, 2);
+          ctx.fillRect(arrowX - 9, arrowY + 3, 3, 2);
+        }
+      }
+    } else {
+      // フォールバック：画像がない場合は色で描画
+      const isIce = platform.type === 'ice';
+      const isCaterpillar = platform.type === 'caterpillar';
+      let mainColor = CONFIG.COLORS.PLATFORM;
+      let lightColor = CONFIG.COLORS.PLATFORM_LIGHT;
+
+      if (isIce) {
+        mainColor = CONFIG.ICE.COLOR;
+        lightColor = CONFIG.ICE.COLOR_LIGHT;
+      } else if (isCaterpillar) {
+        mainColor = CONFIG.CATERPILLAR.COLOR_DARK;
+        lightColor = CONFIG.CATERPILLAR.COLOR_LIGHT;
+      }
+
+      for (let i = 0; i < platform.blockCount; i++) {
+        const blockX = platform.x + i * blockSize;
+        ctx.fillStyle = mainColor;
+        ctx.fillRect(blockX, screenY, blockSize, CONFIG.PLATFORM.HEIGHT);
+        ctx.fillStyle = lightColor;
+        ctx.fillRect(blockX, screenY, blockSize, 2);
+        ctx.fillStyle = CONFIG.COLORS.BACKGROUND;
+        ctx.fillRect(blockX + blockSize - 1, screenY, 1, CONFIG.PLATFORM.HEIGHT);
       }
     }
   });

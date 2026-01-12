@@ -1,5 +1,5 @@
 // ゲームの状態
-export type GameScreen = 'title' | 'playing' | 'cleared' | 'gameover';
+export type GameScreen = 'title' | 'playing' | 'paused' | 'cleared' | 'gameover';
 
 // 位置
 export interface Position {
