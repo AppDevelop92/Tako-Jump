@@ -75,7 +75,7 @@ export const CONFIG = {
   // うなぎ設定
   EEL: {
     SIZE: 32, // うなぎのサイズ
-    SUPER_JUMP_VELOCITY: 32.4, // 通常MAXの2倍 (16.2 * 2)
+    SUPER_JUMP_VELOCITY: 24, // スーパージャンプ速度
     COLOR: '#FF6B6B', // 薄い赤色
     COLOR_LIGHT: '#FF8E8E',
     ROTATION_SPEED: 0.02, // 回転速度
