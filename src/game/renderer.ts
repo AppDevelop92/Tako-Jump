@@ -323,48 +323,58 @@ export function drawWater(ctx: CanvasRenderingContext2D, state: GameState) {
   // 画面外はスキップ
   if (screenY > CONFIG.CANVAS_HEIGHT) return;
 
-  const zigzagWidth = 12; // ギザギザの幅
-  const zigzagHeight = 10; // ギザギザの高さ
+  const zigzagWidth = 16; // ギザギザの幅（三角形1つ分）
+  const zigzagHeight = 12; // ギザギザの高さ（三角形の頂点までの高さ）
 
-  // 水の本体を描画
+  // 水の本体を描画（マゼンタ/紫）
   ctx.fillStyle = CONFIG.COLORS.WATER;
 
-  // ギザギザ（三角波）の上端を描画
+  // ギザギザ（三角波）の上端を描画 - 左に流れるアニメーション
   ctx.beginPath();
   ctx.moveTo(0, CONFIG.CANVAS_HEIGHT);
 
-  // アニメーションオフセットを適用
-  const animOffset = (water.waveOffset * 0.5) % zigzagWidth;
+  // 左方向に流れるアニメーションオフセット
+  const animOffset = -(water.waveOffset * 0.3) % zigzagWidth;
 
-  for (let x = -zigzagWidth + animOffset; x <= CONFIG.CANVAS_WIDTH + zigzagWidth; x += zigzagWidth) {
-    // 三角形の頂点（上向き）
-    ctx.lineTo(x, screenY + zigzagHeight);
+  // 左端から開始して右端まで三角形を描画
+  let startX = -zigzagWidth * 2 + animOffset;
+
+  ctx.moveTo(startX, screenY + zigzagHeight);
+
+  for (let x = startX; x <= CONFIG.CANVAS_WIDTH + zigzagWidth * 2; x += zigzagWidth) {
+    // 三角形の底辺から頂点へ
     ctx.lineTo(x + zigzagWidth / 2, screenY);
+    // 頂点から次の底辺へ
+    ctx.lineTo(x + zigzagWidth, screenY + zigzagHeight);
   }
 
-  ctx.lineTo(CONFIG.CANVAS_WIDTH, screenY + zigzagHeight);
-  ctx.lineTo(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+  // 画面下端まで塗りつぶし
+  ctx.lineTo(CONFIG.CANVAS_WIDTH + zigzagWidth * 2, CONFIG.CANVAS_HEIGHT);
+  ctx.lineTo(-zigzagWidth * 2, CONFIG.CANVAS_HEIGHT);
   ctx.closePath();
   ctx.fill();
 
-  // 白い点を水中に散らばらせる（斜めのパターン）
+  // 白い点を水中に散らばらせる（斜めの格子パターン）
   ctx.fillStyle = '#FFFFFF';
   const dotSize = 2;
-  const dotSpacingX = 20;
-  const dotSpacingY = 14;
+  const dotSpacingX = 24; // 横方向の間隔
+  const dotSpacingY = 16; // 縦方向の間隔
+  const diagonalOffset = 12; // 行ごとの斜めオフセット
 
-  const waterTop = screenY + zigzagHeight;
+  const waterTop = screenY + zigzagHeight + 4;
   const waterBottom = CONFIG.CANVAS_HEIGHT;
 
   for (let row = 0; waterTop + row * dotSpacingY < waterBottom; row++) {
-    const y = waterTop + row * dotSpacingY + 5;
+    const y = waterTop + row * dotSpacingY;
     if (y > CONFIG.CANVAS_HEIGHT) break;
 
-    // 行ごとにオフセットを変えて斜めのパターンを作る
-    const rowOffset = (row % 2) * (dotSpacingX / 2);
+    // 各行を斜めにオフセット（斜めの線パターンを作る）
+    const rowOffset = (row * diagonalOffset) % dotSpacingX;
 
-    for (let x = rowOffset; x < CONFIG.CANVAS_WIDTH; x += dotSpacingX) {
-      ctx.fillRect(x, y, dotSize, dotSize);
+    for (let x = -dotSpacingX + rowOffset; x < CONFIG.CANVAS_WIDTH + dotSpacingX; x += dotSpacingX) {
+      if (x >= -dotSize && x <= CONFIG.CANVAS_WIDTH) {
+        ctx.fillRect(x, y, dotSize, dotSize);
+      }
     }
   }
 }
