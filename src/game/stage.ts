@@ -66,13 +66,17 @@ export function generatePlatforms(stageConfig: StageConfig): Platform[] {
     blockCount: groundBlockCount,
   });
 
-  // 浮遊床の開始位置（地面より上）
-  let currentY = groundY - 100;
+  // 最初の足場の位置（地面からfirstPlatformGap分上）
+  const firstGap = stageConfig.firstPlatformGap || 200;
+  let currentY = groundY - firstGap;
   let lastX = CONFIG.CANVAS_WIDTH / 2;
 
   for (let i = 0; i < stageConfig.platformCount; i++) {
-    const gap = randomInRange(stageConfig.gapMin, stageConfig.gapMax);
-    currentY -= gap;
+    // 2番目以降の足場はgapMin〜gapMaxの間隔
+    if (i > 0) {
+      const gap = randomInRange(stageConfig.gapMin, stageConfig.gapMax);
+      currentY -= gap;
+    }
 
     // ブロック数を整数でランダム生成
     const blockCount = randomInt(stageConfig.blockCountMin, stageConfig.blockCountMax);

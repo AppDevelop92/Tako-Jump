@@ -4,11 +4,11 @@ export const CONFIG = {
   CANVAS_WIDTH: 390,
   CANVAS_HEIGHT: 844,
 
-  // タコ（画面幅の1/14）
+  // タコ
   TAKO: {
-    WIDTH: 28,
-    HEIGHT: 33,
-    GRAVITY: 0.4, // 重力加速度
+    WIDTH: 29, // 28 * 1.05
+    HEIGHT: 35, // 33 * 1.05
+    GRAVITY: 0.38, // 重力加速度
     MAX_FALL_SPEED: 10.5,
     AIR_CONTROL: 0.3,
   },
@@ -91,12 +91,13 @@ export const CONFIG = {
     {
       id: 1,
       name: 'Stage 1',
-      totalHeight: 5.3, // 高さ120 = 12床分
+      totalHeight: 5.3,
       platformCount: 12,
-      blockCountMin: 10, // 簡単
+      firstPlatformGap: 180, // 地面→最初の足場（MAXジャンプ328px以下）
+      blockCountMin: 10, // 広い足場（1つ飛ばしOK）
       blockCountMax: 14,
-      gapMin: 180, // 簡単
-      gapMax: 240,
+      gapMin: 150, // 簡単（1つ飛ばし可能）
+      gapMax: 200,
       normalRatio: 1.0,
       iceRatio: 0,
       caterpillarRatio: 0,
@@ -108,11 +109,12 @@ export const CONFIG = {
     {
       id: 2,
       name: 'Stage 2',
-      totalHeight: 5.3, // 高さ120
+      totalHeight: 5.3,
       platformCount: 12,
-      blockCountMin: 4, // 難しい
+      firstPlatformGap: 200,
+      blockCountMin: 4, // 狭い足場（1つずつ必須）
       blockCountMax: 8,
-      gapMin: 200, // 難しい（足場幅が狭いので間隔は抑える）
+      gapMin: 220, // 難しい（1つずつ）
       gapMax: 280,
       normalRatio: 1.0,
       iceRatio: 0,
@@ -125,12 +127,13 @@ export const CONFIG = {
     {
       id: 3,
       name: 'Stage 3',
-      totalHeight: 5.3, // 高さ120
+      totalHeight: 5.3,
       platformCount: 12,
-      blockCountMin: 6, // 普通
-      blockCountMax: 10,
-      gapMin: 180, // 簡単
-      gapMax: 240,
+      firstPlatformGap: 180,
+      blockCountMin: 8, // 広め（1つ飛ばしOK）
+      blockCountMax: 12,
+      gapMin: 150,
+      gapMax: 200,
       normalRatio: 0.5,
       iceRatio: 0.5,
       caterpillarRatio: 0,
@@ -142,11 +145,12 @@ export const CONFIG = {
     {
       id: 4,
       name: 'Stage 4',
-      totalHeight: 5.3, // 高さ120
+      totalHeight: 5.3,
       platformCount: 12,
-      blockCountMin: 4, // 難しい
+      firstPlatformGap: 220,
+      blockCountMin: 4, // 狭い
       blockCountMax: 8,
-      gapMin: 200, // 普通
+      gapMin: 220,
       gapMax: 280,
       normalRatio: 0.3,
       iceRatio: 0.7,
@@ -159,11 +163,12 @@ export const CONFIG = {
     {
       id: 5,
       name: 'Stage 5',
-      totalHeight: 5.3, // 高さ120
+      totalHeight: 5.3,
       platformCount: 12,
-      blockCountMin: 4, // 難しい
-      blockCountMax: 8,
-      gapMin: 220, // 難しい
+      firstPlatformGap: 250,
+      blockCountMin: 4, // 狭い
+      blockCountMax: 7,
+      gapMin: 250, // 難しい（ギリギリ）
       gapMax: 300,
       normalRatio: 0,
       iceRatio: 1.0,
@@ -176,12 +181,13 @@ export const CONFIG = {
     {
       id: 6,
       name: 'Stage 6',
-      totalHeight: 7.1, // 高さ160
+      totalHeight: 7.1,
       platformCount: 16,
-      blockCountMin: 6, // 普通
-      blockCountMax: 10,
-      gapMin: 200, // 普通
-      gapMax: 280,
+      firstPlatformGap: 180,
+      blockCountMin: 8, // 広め
+      blockCountMax: 12,
+      gapMin: 150,
+      gapMax: 220,
       normalRatio: 0.8,
       iceRatio: 0.2,
       caterpillarRatio: 0,
@@ -193,12 +199,13 @@ export const CONFIG = {
     {
       id: 7,
       name: 'Stage 7',
-      totalHeight: 8.0, // 高さ180
+      totalHeight: 8.0,
       platformCount: 18,
-      blockCountMin: 4, // 難しい
+      firstPlatformGap: 200,
+      blockCountMin: 4, // 狭い
       blockCountMax: 8,
-      gapMin: 200, // 普通
-      gapMax: 280,
+      gapMin: 200,
+      gapMax: 260,
       normalRatio: 0.6,
       iceRatio: 0.4,
       caterpillarRatio: 0,
@@ -210,12 +217,13 @@ export const CONFIG = {
     {
       id: 8,
       name: 'Stage 8',
-      totalHeight: 6.2, // 高さ140
+      totalHeight: 6.2,
       platformCount: 14,
-      blockCountMin: 6, // 普通
+      firstPlatformGap: 200,
+      blockCountMin: 6,
       blockCountMax: 10,
-      gapMin: 200, // 普通
-      gapMax: 280,
+      gapMin: 180,
+      gapMax: 250,
       normalRatio: 0.4,
       iceRatio: 0.4,
       caterpillarRatio: 0.2,
@@ -227,11 +235,12 @@ export const CONFIG = {
     {
       id: 9,
       name: 'Stage 9',
-      totalHeight: 7.1, // 高さ160
+      totalHeight: 7.1,
       platformCount: 16,
-      blockCountMin: 4, // 難しい
+      firstPlatformGap: 220,
+      blockCountMin: 4, // 狭い
       blockCountMax: 8,
-      gapMin: 200, // 普通
+      gapMin: 220,
       gapMax: 280,
       normalRatio: 0.2,
       iceRatio: 0.4,
@@ -244,11 +253,12 @@ export const CONFIG = {
     {
       id: 10,
       name: 'Stage 10',
-      totalHeight: 7.1, // 高さ160
+      totalHeight: 7.1,
       platformCount: 16,
-      blockCountMin: 4, // 難しい
-      blockCountMax: 8,
-      gapMin: 220, // 難しい
+      firstPlatformGap: 250,
+      blockCountMin: 4, // 狭い
+      blockCountMax: 7,
+      gapMin: 250, // 難しい
       gapMax: 300,
       normalRatio: 0,
       iceRatio: 0.4,
