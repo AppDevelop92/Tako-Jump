@@ -1,6 +1,6 @@
 import { CONFIG } from './config';
 import type { StageConfig } from './config';
-import type { Platform, Moon, Star, Water, PlatformType, Eel } from './types';
+import type { Platform, Moon, Star, Water, PlatformType, Eel, Jellyfish } from './types';
 
 // シード付き乱数生成器（Mulberry32アルゴリズム）
 // 同じシードからは常に同じ乱数列が生成される
@@ -39,6 +39,7 @@ function determinePlatformType(stageConfig: StageConfig): PlatformType {
   const normalRatio = stageConfig.normalRatio || 0;
   const iceRatio = stageConfig.iceRatio || 0;
   const caterpillarRatio = stageConfig.caterpillarRatio || 0;
+  const movingRatio = stageConfig.movingRatio || 0;
 
   if (rand < normalRatio) {
     return 'normal';
@@ -46,6 +47,8 @@ function determinePlatformType(stageConfig: StageConfig): PlatformType {
     return 'ice';
   } else if (rand < normalRatio + iceRatio + caterpillarRatio) {
     return 'caterpillar';
+  } else if (rand < normalRatio + iceRatio + caterpillarRatio + movingRatio) {
+    return 'moving';
   }
   return 'normal'; // デフォルト
 }
@@ -78,12 +81,37 @@ export function generatePlatforms(stageConfig: StageConfig): Platform[] {
       currentY -= gap;
     }
 
-    // ブロック数を整数でランダム生成
-    const blockCount = randomInt(stageConfig.blockCountMin, stageConfig.blockCountMax);
-    const width = blockCount * blockSize;
-
     // 床のタイプを決定
     const type = determinePlatformType(stageConfig);
+
+    // ブロック数を整数でランダム生成
+    // 難易度が高いステージでも一定割合で広い足場を混ぜる
+    // 狭い足場だけで構成せず、幅の小さい足場の「割合」を増やす形式
+    let blockCount: number;
+    const widePlatformChance = currentRandom();
+
+    if (widePlatformChance < 0.25) {
+      // 25%の確率で広い足場（8〜12ブロック）を保証
+      blockCount = randomInt(8, 12);
+    } else if (widePlatformChance < 0.5) {
+      // 25%の確率で中程度の足場（6〜10ブロック）
+      blockCount = randomInt(6, 10);
+    } else {
+      // 50%の確率でステージ設定通りの足場（難易度に応じて狭くなる）
+      blockCount = randomInt(stageConfig.blockCountMin, stageConfig.blockCountMax);
+    }
+
+    // 氷の足場は最低5ブロック（難易度が高いため）
+    if (type === 'ice' && blockCount < 5) {
+      blockCount = 5;
+    }
+
+    // 全ての足場で最低4ブロックを保証
+    if (blockCount < 4) {
+      blockCount = 4;
+    }
+
+    const width = blockCount * blockSize;
 
     // 位置を計算（到達可能な範囲内）
     const maxHorizontalJump = CONFIG.CANVAS_WIDTH * 0.5;
@@ -100,6 +128,14 @@ export function generatePlatforms(stageConfig: StageConfig): Platform[] {
     if (type === 'caterpillar') {
       platform.caterpillarOffset = 0;
       platform.caterpillarDirection = currentRandom() < 0.5 ? 1 : -1;
+    }
+
+    // 動く足場の場合、追加プロパティを設定
+    if (type === 'moving') {
+      platform.initialX = x;
+      platform.movingDirection = currentRandom() < 0.5 ? 1 : -1;
+      platform.movingSpeed = stageConfig.movingSpeed || CONFIG.MOVING.DEFAULT_SPEED;
+      platform.movingRange = CONFIG.MOVING.DEFAULT_RANGE;
     }
 
     platforms.push(platform);
@@ -173,6 +209,59 @@ export function generateEels(stageConfig: StageConfig, platforms: Platform[]): E
   }
 
   return eels;
+}
+
+// 空中ジャンプクラゲを生成
+export function generateJellyfish(stageConfig: StageConfig, platforms: Platform[]): Jellyfish[] {
+  const jellyfish: Jellyfish[] = [];
+  const jellyfishCount = stageConfig.jellyfishCount || 0;
+
+  if (jellyfishCount === 0) return jellyfish;
+
+  // 地面と最上部の床を除外した床から配置位置を決定
+  const floatingPlatforms = platforms.slice(1); // 地面を除外
+  if (floatingPlatforms.length < 2) return jellyfish;
+
+  // 高さ方向に均等に分散させる
+  const lowestY = floatingPlatforms[0].y;
+  const highestY = floatingPlatforms[floatingPlatforms.length - 1].y;
+  const heightRange = lowestY - highestY;
+
+  for (let i = 0; i < jellyfishCount; i++) {
+    // 高さを均等に分散（上から順に配置）
+    const sectionHeight = heightRange / (jellyfishCount + 1);
+    const targetY = highestY + sectionHeight * (i + 1);
+
+    // その高さ付近の床を探す
+    let nearestPlatform = floatingPlatforms[0];
+    let minDistance = Math.abs(floatingPlatforms[0].y - targetY);
+
+    for (const platform of floatingPlatforms) {
+      const distance = Math.abs(platform.y - targetY);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestPlatform = platform;
+      }
+    }
+
+    // 床と床の間の空中に配置（床から離れた位置）
+    const jellyfishX = randomInRange(
+      Math.max(CONFIG.JELLYFISH.SIZE, nearestPlatform.x - 80),
+      Math.min(CONFIG.CANVAS_WIDTH - CONFIG.JELLYFISH.SIZE - 20, nearestPlatform.x + nearestPlatform.width + 80)
+    );
+    // 床の上の空中に配置
+    const jellyfishY = nearestPlatform.y - randomInRange(120, 200);
+
+    jellyfish.push({
+      x: jellyfishX,
+      y: jellyfishY,
+      size: CONFIG.JELLYFISH.SIZE,
+      isCollected: false,
+      floatOffset: currentRandom() * Math.PI * 2, // ランダムな初期位相
+    });
+  }
+
+  return jellyfish;
 }
 
 // 水を初期化（画面外から開始）

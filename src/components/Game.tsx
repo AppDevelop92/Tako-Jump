@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { MobileControls } from './MobileControls';
 import {
   CONFIG,
   applyGravity,
@@ -11,6 +12,7 @@ import {
   generateMoon,
   generateStars,
   generateEels,
+  generateJellyfish,
   setRandomSeed,
   initWater,
   calculateScore,
@@ -21,12 +23,16 @@ import {
   drawMoon,
   drawWater,
   drawEels,
+  drawJellyfish,
   drawHUD,
   loadHighScore,
   saveHighScore,
   applyIceFriction,
   applyCaterpillarMovement,
+  applyMovingPlatformMovement,
   checkEelCollision,
+  checkJellyfishCollision,
+  updateMovingPlatforms,
   loadPlatformImages,
   checkFallenOffPlatform,
   clampHorizontalVelocity,
@@ -35,10 +41,14 @@ import type { Platform, GameState } from '../game';
 import { useGameLoop, useKeyboardInput } from '../hooks';
 
 import tako0 from '../assets/tako-0.png';
-import tako33 from '../assets/tako-33.png';
-import tako66 from '../assets/tako-66.png';
-import tako100 from '../assets/tako-100.png';
-import takoDead from '../assets/tako-dead.png';
+import tako25 from '../assets/tako-25.png';
+import tako50 from '../assets/tako-50.png';
+import tako75 from '../assets/tako-75.png';
+import tako100Orange from '../assets/tako-100-orange.png';
+import tako100Yellow from '../assets/tako-100-yellow.png';
+import takoDead0 from '../assets/tako-dead-0.png';
+import takoDead1 from '../assets/tako-dead-1.png';
+import takoDead2 from '../assets/tako-dead-2.png';
 
 const createInitialState = (stage: number = 1, score: number = 0, lives: number = CONFIG.LIVES): GameState => {
   const stageConfig = CONFIG.STAGES[stage - 1];
@@ -46,6 +56,7 @@ const createInitialState = (stage: number = 1, score: number = 0, lives: number 
   const platforms = generatePlatforms(stageConfig);
   const moon = generateMoon(platforms);
   const eels = generateEels(stageConfig, platforms);
+  const jellyfish = generateJellyfish(stageConfig, platforms);
   const totalHeight = stageConfig.totalHeight * CONFIG.CANVAS_HEIGHT;
 
   return {
@@ -65,9 +76,12 @@ const createInitialState = (stage: number = 1, score: number = 0, lives: number 
       isGrounded: true,
       facingRight: true,
       airChargeLockedVelocityX: null,
+      deadTime: null,
+      hasAirJump: false,
     },
     platforms,
     eels,
+    jellyfish,
     moon,
     water: initWater(stageConfig),
     camera: {
@@ -115,6 +129,20 @@ export function Game() {
   const [images, setImages] = useState<{ [key: string]: HTMLImageElement }>({});
   const [imagesLoaded, setImagesLoaded] = useState(false);
 
+  // モバイル検出
+  const isMobile = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      ('ontouchstart' in window && window.innerWidth < 1024);
+  }, []);
+
+  // タッチ入力状態（モバイル用）
+  const touchInputRef = useRef({
+    direction: { x: 0, y: 0 },
+    isJumpPressed: false,
+    jumpJustReleased: false,
+  });
+
   // パフォーマンス最適化: キーボード入力はRefベース
   const { stateRef: keyboardRef, clearSpaceReleased: _clearSpaceReleased } = useKeyboardInput();
   const jumpDirectionRef = useRef({ x: 0, y: -1 });
@@ -126,10 +154,14 @@ export function Game() {
     const loadImages = async () => {
       const imageMap: { [key: string]: string } = {
         '0': tako0,
-        '33': tako33,
-        '66': tako66,
-        '100': tako100,
-        'dead': takoDead,
+        '25': tako25,
+        '50': tako50,
+        '75': tako75,
+        '100-orange': tako100Orange,
+        '100-yellow': tako100Yellow,
+        'dead-0': takoDead0,
+        'dead-1': takoDead1,
+        'dead-2': takoDead2,
       };
 
       const loaded: { [key: string]: HTMLImageElement } = {};
@@ -156,6 +188,21 @@ export function Game() {
     };
 
     loadImages();
+  }, []);
+
+  // タッチコントロールのハンドラー
+  const handleDirectionChange = useCallback((direction: { x: number; y: number }) => {
+    touchInputRef.current.direction = direction;
+  }, []);
+
+  const handleJumpStart = useCallback(() => {
+    touchInputRef.current.isJumpPressed = true;
+    touchInputRef.current.jumpJustReleased = false;
+  }, []);
+
+  const handleJumpEnd = useCallback(() => {
+    touchInputRef.current.isJumpPressed = false;
+    touchInputRef.current.jumpJustReleased = true;
   }, []);
 
   // ゲームを開始
@@ -189,6 +236,7 @@ export function Game() {
       const platforms = generatePlatforms(stageConfig);
       const moon = generateMoon(platforms);
       const eels = generateEels(stageConfig, platforms);
+      const jellyfish = generateJellyfish(stageConfig, platforms);
       const totalHeight = stageConfig.totalHeight * CONFIG.CANVAS_HEIGHT;
 
       if (waterDelayTimerRef.current) {
@@ -216,9 +264,12 @@ export function Game() {
           isGrounded: true,
           facingRight: true,
           airChargeLockedVelocityX: null,
+          deadTime: null,
+          hasAirJump: false,
         },
         platforms,
         eels,
+        jellyfish,
         moon,
         water: initWater(stageConfig),
         camera: {
@@ -242,6 +293,20 @@ export function Game() {
   const updateGame = useCallback((deltaTime: number) => {
     // キーボード入力をRefから直接読み取る
     const keyboard = keyboardRef.current;
+    const touchInput = touchInputRef.current;
+
+    // 入力を統合（キーボード OR タッチ）
+    const isJumpPressed = keyboard.isSpacePressed || touchInput.isJumpPressed;
+    const jumpJustReleased = keyboard.spaceJustReleased || touchInput.jumpJustReleased;
+    const arrowDirection = {
+      x: keyboard.arrowDirection.x !== 0 ? keyboard.arrowDirection.x : touchInput.direction.x,
+      y: keyboard.arrowDirection.y !== 0 ? keyboard.arrowDirection.y : touchInput.direction.y,
+    };
+
+    // タッチのjumpJustReleasedをリセット
+    if (touchInput.jumpJustReleased) {
+      touchInput.jumpJustReleased = false;
+    }
 
     setState(prev => {
       if (prev.screen !== 'playing') return prev;
@@ -255,7 +320,7 @@ export function Game() {
       const onIcePlatform = currentPlatformRef.current?.type === 'ice' && tako.isGrounded;
 
       // チャージ処理
-      if (keyboard.isSpacePressed && tako.state !== 'dead') {
+      if (isJumpPressed && tako.state !== 'dead') {
         if (tako.chargeStartTime === null) {
           tako.chargeStartTime = performance.now();
           tako.state = 'charging';
@@ -268,22 +333,34 @@ export function Game() {
           1
         );
         // 氷の上では方向入力を無効化（滑りをコントロールできない）
-        if (tako.isGrounded && !onIcePlatform && (keyboard.arrowDirection.x !== 0 || keyboard.arrowDirection.y !== 0)) {
-          jumpDirectionRef.current = { x: keyboard.arrowDirection.x, y: keyboard.arrowDirection.y };
+        if (tako.isGrounded && !onIcePlatform && (arrowDirection.x !== 0 || arrowDirection.y !== 0)) {
+          jumpDirectionRef.current = { x: arrowDirection.x, y: arrowDirection.y };
         }
         // 空中チャージ中は微小な横移動のみ許可
-        if (!tako.isGrounded && keyboard.arrowDirection.x !== 0) {
-          tako.velocity.x += keyboard.arrowDirection.x * CONFIG.TAKO.AIR_CONTROL_CHARGING * CONFIG.HORIZONTAL_FACTOR * deltaTime * 60;
+        if (!tako.isGrounded && arrowDirection.x !== 0) {
+          tako.velocity.x += arrowDirection.x * CONFIG.TAKO.AIR_CONTROL_CHARGING * CONFIG.HORIZONTAL_FACTOR * deltaTime * 60;
         }
       }
 
       // ジャンプ発動
       const wasCharging = tako.chargeStartTime !== null;
       const isOnIce = currentPlatformRef.current?.type === 'ice';
-      if (keyboard.spaceJustReleased && wasCharging && tako.state !== 'dead') {
-        // 空中ではジャンプ不可（チャージ解除のみ）
+      if (jumpJustReleased && wasCharging && tako.state !== 'dead') {
+        // 空中での処理
         if (!tako.isGrounded) {
-          tako.state = 'jumping';
+          // 空中ジャンプが使用可能な場合
+          if (tako.hasAirJump) {
+            const { vx, vy, facingRight } = calculateKeyboardJump(
+              tako.chargeRatio,
+              jumpDirectionRef.current,
+              0
+            );
+            tako.velocity = { x: vx, y: vy };
+            tako.state = 'jumping';
+            tako.facingRight = facingRight;
+            tako.hasAirJump = false; // 空中ジャンプを消費
+          }
+          // チャージ解除
           tako.chargeStartTime = null;
           tako.chargeRatio = 0;
           tako.airChargeLockedVelocityX = null;
@@ -309,8 +386,8 @@ export function Game() {
 
       // 空中微調整（横移動係数を適用）
       if (!tako.isGrounded && tako.state !== 'dead' && tako.airChargeLockedVelocityX === null) {
-        if (keyboard.arrowDirection.x !== 0) {
-          tako.velocity.x += keyboard.arrowDirection.x * CONFIG.TAKO.AIR_CONTROL * CONFIG.HORIZONTAL_FACTOR * deltaTime * 60;
+        if (arrowDirection.x !== 0) {
+          tako.velocity.x += arrowDirection.x * CONFIG.TAKO.AIR_CONTROL * CONFIG.HORIZONTAL_FACTOR * deltaTime * 60;
         }
       }
 
@@ -337,6 +414,9 @@ export function Game() {
         // キャタピラ床上での移動
         tako = applyCaterpillarMovement(tako, currentPlatformRef.current);
 
+        // 動く足場上での移動
+        tako = applyMovingPlatformMovement(tako, currentPlatformRef.current);
+
         // 横移動速度を制限
         tako = clampHorizontalVelocity(tako);
 
@@ -346,6 +426,11 @@ export function Game() {
         const eelResult = checkEelCollision(tako, newState.eels);
         tako = eelResult.tako;
         newState.eels = eelResult.eels;
+
+        // クラゲとの衝突判定（空中ジャンプ付与）
+        const jellyfishResult = checkJellyfishCollision(tako, newState.jellyfish);
+        tako = jellyfishResult.tako;
+        newState.jellyfish = jellyfishResult.jellyfish;
       }
 
       newState.tako = tako;
@@ -366,6 +451,9 @@ export function Game() {
         }
         return platform;
       });
+
+      // 動く足場の更新
+      newState.platforms = updateMovingPlatforms(newState.platforms);
 
       // 月との衝突（クリア）
       if (checkMoonCollision(tako, newState.moon) && tako.state !== 'dead') {
@@ -397,6 +485,7 @@ export function Game() {
       if (checkWaterCollision(tako, newState.water) && tako.state !== 'dead') {
         tako.state = 'dead';
         tako.velocity = { x: 0, y: 0 };
+        tako.deadTime = performance.now();
         newState.tako = tako;
         newState.lives--;
 
@@ -431,6 +520,8 @@ export function Game() {
               const startPlatform = p.platforms[0];
               // うなぎをリセット（再度取得可能に）
               const resetEels = p.eels.map(eel => ({ ...eel, isCollected: false }));
+              // クラゲをリセット（再度取得可能に）
+              const resetJellyfish = p.jellyfish.map(jf => ({ ...jf, isCollected: false }));
               return {
                 ...p,
                 tako: {
@@ -442,8 +533,11 @@ export function Game() {
                   isGrounded: true,
                   facingRight: true,
                   airChargeLockedVelocityX: null,
+                  deadTime: null,
+                  hasAirJump: false,
                 },
                 eels: resetEels,
+                jellyfish: resetJellyfish,
                 camera: {
                   y: startPlatform.y - CONFIG.CANVAS_HEIGHT + 200,
                   targetY: startPlatform.y - CONFIG.CANVAS_HEIGHT + 200,
@@ -542,6 +636,7 @@ export function Game() {
     drawMoon(ctx, state);
     drawPlatforms(ctx, state.platforms, state.camera.y);
     drawEels(ctx, state.eels, state.camera.y);
+    drawJellyfish(ctx, state.jellyfish, state.camera.y);
     drawWater(ctx, state);
     drawTako(ctx, state, images);
 
@@ -705,8 +800,15 @@ export function Game() {
 
     const checkSpaceKey = () => {
       const keyboard = keyboardRef.current;
-      if (keyboard.spaceJustReleased) {
+      const touchInput = touchInputRef.current;
+
+      // キーボードまたはタッチでの入力を確認
+      const released = keyboard.spaceJustReleased || touchInput.jumpJustReleased;
+
+      if (released) {
         keyboard.spaceJustReleased = false;
+        touchInput.jumpJustReleased = false;
+
         if (state.screen === 'title') {
           startGame();
         } else if (state.screen === 'cleared') {
@@ -752,6 +854,48 @@ export function Game() {
     }
   }, [state.screen, pauseGame, resumeGame, restartFromBeginning]);
 
+  // モバイルの場合は横画面レイアウト
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
+        {/* 左コントロールエリア（ジャンプボタン） */}
+        <div className="flex-1 h-full relative">
+          {/* Jump buttonはMobileControlsで描画 */}
+        </div>
+
+        {/* ゲーム画面（中央、画面高さの60%） */}
+        <div className="flex-shrink-0 flex items-center justify-center" style={{ height: '60vh' }}>
+          <canvas
+            ref={canvasRef}
+            width={CONFIG.CANVAS_WIDTH}
+            height={CONFIG.CANVAS_HEIGHT}
+            className="h-full"
+            style={{
+              imageRendering: 'pixelated',
+              aspectRatio: `${CONFIG.CANVAS_WIDTH} / ${CONFIG.CANVAS_HEIGHT}`,
+            }}
+            tabIndex={0}
+            onClick={handleCanvasClick}
+          />
+        </div>
+
+        {/* 右コントロールエリア（方向パッド） */}
+        <div className="flex-1 h-full relative">
+          {/* D-padはMobileControlsで描画 */}
+        </div>
+
+        {/* モバイルコントロール（オーバーレイ） */}
+        <MobileControls
+          onDirectionChange={handleDirectionChange}
+          onJumpStart={handleJumpStart}
+          onJumpEnd={handleJumpEnd}
+          isCharging={state.tako.chargeStartTime !== null}
+        />
+      </div>
+    );
+  }
+
+  // PCの場合は通常レイアウト
   return (
     <div className="w-full h-full flex items-center justify-center bg-[#2D2A5A]">
       <canvas

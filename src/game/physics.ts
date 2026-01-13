@@ -1,5 +1,5 @@
 import { CONFIG } from './config';
-import type { Tako, Platform, Moon, Water, Position, Eel } from './types';
+import type { Tako, Platform, Moon, Water, Position, Eel, Jellyfish } from './types';
 
 // 重力を適用
 export function applyGravity(tako: Tako): Tako {
@@ -305,4 +305,104 @@ export function checkEelCollision(tako: Tako, eels: Eel[]): {
   }
 
   return { tako, eels: newEels, collected: false };
+}
+
+// 動く足場の更新
+export function updateMovingPlatforms(platforms: Platform[]): Platform[] {
+  return platforms.map(platform => {
+    if (platform.type !== 'moving' || platform.initialX === undefined) {
+      return platform;
+    }
+
+    const direction = platform.movingDirection || 1;
+    const speed = platform.movingSpeed || CONFIG.MOVING.DEFAULT_SPEED;
+    const range = platform.movingRange || CONFIG.MOVING.DEFAULT_RANGE;
+
+    let newX = platform.x + speed * direction;
+    let newDirection = direction;
+
+    // 移動範囲の端で反転
+    const minX = Math.max(0, platform.initialX - range);
+    const maxX = Math.min(CONFIG.CANVAS_WIDTH - platform.width, platform.initialX + range);
+
+    if (newX <= minX) {
+      newX = minX;
+      newDirection = 1;
+    } else if (newX >= maxX) {
+      newX = maxX;
+      newDirection = -1;
+    }
+
+    return {
+      ...platform,
+      x: newX,
+      movingDirection: newDirection as 1 | -1,
+    };
+  });
+}
+
+// 動く足場上でのタコ移動（足場と一緒に動く）
+export function applyMovingPlatformMovement(tako: Tako, platform: Platform | null): Tako {
+  if (!platform || platform.type !== 'moving' || !tako.isGrounded) {
+    return tako;
+  }
+
+  const direction = platform.movingDirection || 1;
+  const speed = platform.movingSpeed || CONFIG.MOVING.DEFAULT_SPEED;
+
+  // タコを足場と一緒に移動
+  const newX = tako.position.x + speed * direction;
+
+  return {
+    ...tako,
+    position: { ...tako.position, x: newX },
+  };
+}
+
+// クラゲとの衝突判定（空中ジャンプ付与）
+export function checkJellyfishCollision(tako: Tako, jellyfish: Jellyfish[]): {
+  tako: Tako;
+  jellyfish: Jellyfish[];
+  collected: boolean;
+} {
+  if (tako.state === 'dead') {
+    return { tako, jellyfish, collected: false };
+  }
+
+  const takoCenterX = tako.position.x + CONFIG.TAKO.WIDTH / 2;
+  const takoCenterY = tako.position.y + CONFIG.TAKO.HEIGHT / 2;
+
+  const newJellyfish = jellyfish.map(jf => {
+    if (jf.isCollected) return jf;
+
+    const jfCenterX = jf.x + jf.size / 2;
+    const jfCenterY = jf.y + jf.size / 2;
+
+    const dx = takoCenterX - jfCenterX;
+    const dy = takoCenterY - jfCenterY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // 衝突判定
+    if (distance < (CONFIG.TAKO.WIDTH / 2 + jf.size / 2) * 0.8) {
+      return { ...jf, isCollected: true };
+    }
+    return jf;
+  });
+
+  // 新しく取得したクラゲがあるか確認
+  const collectedJf = newJellyfish.find((jf, i) => jf.isCollected && !jellyfish[i].isCollected);
+
+  if (collectedJf) {
+    // 空中ジャンプを付与
+    return {
+      tako: {
+        ...tako,
+        hasAirJump: true,
+      },
+      jellyfish: newJellyfish,
+      collected: true,
+    };
+  }
+
+  return { tako, jellyfish: newJellyfish, collected: false };
 }

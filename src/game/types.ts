@@ -26,10 +26,12 @@ export interface Tako {
   isGrounded: boolean;
   facingRight: boolean;
   airChargeLockedVelocityX: number | null; // 空中チャージ開始時のx速度（慣性保持用）
+  deadTime: number | null; // 死亡時刻（アニメーション用）
+  hasAirJump: boolean; // 空中ジャンプが使用可能か
 }
 
 // 床のタイプ
-export type PlatformType = 'normal' | 'ice' | 'caterpillar';
+export type PlatformType = 'normal' | 'ice' | 'caterpillar' | 'moving';
 
 // 床
 export interface Platform {
@@ -40,6 +42,20 @@ export interface Platform {
   blockCount: number; // ブロック数（整数）
   caterpillarOffset?: number; // キャタピラのアニメーションオフセット
   caterpillarDirection?: 1 | -1; // キャタピラの移動方向
+  // 動く足場用
+  movingDirection?: 1 | -1; // 移動方向（1: 右, -1: 左）
+  movingSpeed?: number; // 移動速度
+  initialX?: number; // 初期X座標（移動範囲の基準）
+  movingRange?: number; // 移動範囲（左右の最大距離）
+}
+
+// 空中ジャンプクラゲ
+export interface Jellyfish {
+  x: number;
+  y: number;
+  size: number;
+  isCollected: boolean;
+  floatOffset: number; // 浮遊アニメーション用
 }
 
 // うなぎ（スーパージャンプアイテム）
@@ -92,6 +108,7 @@ export interface GameState {
   tako: Tako;
   platforms: Platform[];
   eels: Eel[];
+  jellyfish: Jellyfish[];
   moon: Moon;
   water: Water;
   camera: Camera;

@@ -1,5 +1,5 @@
 import { CONFIG } from './config';
-import type { GameState, Star, Platform, Eel } from './types';
+import type { GameState, Star, Platform, Eel, Jellyfish } from './types';
 
 // 画像キャッシュ
 const imageCache: Map<string, HTMLImageElement> = new Map();
@@ -8,27 +8,41 @@ const imageCache: Map<string, HTMLImageElement> = new Map();
 import platformNormalSrc from '../assets/platform_normal.png';
 import platformIceSrc from '../assets/platform_ice.png';
 import platformCaterpillarSrc from '../assets/platform_caterpillar.png';
+import caterpillarBlockSrc from '../assets/caterpillar_block.png';
+import caterpillarChainSrc from '../assets/caterpillar_chain.png';
+import platformMovingSrc from '../assets/platform_moving.png';
 import waterSrc from '../assets/water.png';
+import jellyfishSrc from '../assets/jellyfish.png';
 
 // 足場画像のキャッシュ
 let platformImages: {
   normal: HTMLImageElement | null;
   ice: HTMLImageElement | null;
   caterpillar: HTMLImageElement | null;
+  moving: HTMLImageElement | null;
 } = {
   normal: null,
   ice: null,
   caterpillar: null,
+  moving: null,
 };
+
+// キャタピラ用の画像キャッシュ
+let caterpillarBlockImage: HTMLImageElement | null = null;
+let caterpillarChainImage: HTMLImageElement | null = null;
+
+// クラゲ画像のキャッシュ
+let jellyfishImage: HTMLImageElement | null = null;
 
 // 水画像のキャッシュ
 let waterImage: HTMLImageElement | null = null;
 
 // 足場画像の1ブロックあたりのサイズ（ソース画像内）
-const PLATFORM_IMAGE_INFO = {
+const PLATFORM_IMAGE_INFO: { [key: string]: { width: number; height: number; blockCount: number } } = {
   normal: { width: 505, height: 89, blockCount: 6 },
   ice: { width: 522, height: 89, blockCount: 6 },
   caterpillar: { width: 667, height: 128, blockCount: 6 },
+  moving: { width: 505, height: 89, blockCount: 6 }, // normalと同じサイズ想定
 };
 
 // 足場画像をロード
@@ -42,15 +56,22 @@ export async function loadPlatformImages(): Promise<void> {
     });
   };
 
-  const [normal, ice, caterpillar, water] = await Promise.all([
+  const [normal, ice, caterpillar, catBlock, catChain, moving, water, jellyfish] = await Promise.all([
     loadImg(platformNormalSrc),
     loadImg(platformIceSrc),
     loadImg(platformCaterpillarSrc),
+    loadImg(caterpillarBlockSrc),
+    loadImg(caterpillarChainSrc),
+    loadImg(platformMovingSrc),
     loadImg(waterSrc),
+    loadImg(jellyfishSrc),
   ]);
 
-  platformImages = { normal, ice, caterpillar };
+  platformImages = { normal, ice, caterpillar, moving };
+  caterpillarBlockImage = catBlock;
+  caterpillarChainImage = catChain;
   waterImage = water;
+  jellyfishImage = jellyfish;
 }
 
 // 画像をロード
@@ -171,43 +192,134 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
     const img = platformImages[platformType];
     const imgInfo = PLATFORM_IMAGE_INFO[platformType];
 
-    if (img && imgInfo) {
-      // 画像からブロックをタイル描画
+    // キャタピラ足場は特別な描画処理（ブロック + チェーン）
+    if (platformType === 'caterpillar' && caterpillarBlockImage && caterpillarChainImage) {
+      // チェーン画像の情報
+      // chainImage: 667 x 128 px
+      // 上チェーン: 0-20px, 中央（ブロック領域）: 20-108px, 下チェーン: 108-128px
+      const chainTopHeight = 20;
+      const chainBottomHeight = 20;
+      const chainMiddleHeight = 88;
+
+      // ブロック画像の情報
+      // blockImage: 627 x 89 px, 7ブロック
+      const blockSrcWidth = caterpillarBlockImage.width / 7;
+      const blockSrcHeight = caterpillarBlockImage.height;
+
+      // 描画サイズ
+      const destBlockWidth = blockSize;
+      const scale = destBlockWidth / blockSrcWidth;
+      const destBlockHeight = blockSrcHeight * scale;
+      const destChainTopHeight = chainTopHeight * scale;
+      const destChainBottomHeight = chainBottomHeight * scale;
+      const totalHeight = destChainTopHeight + destBlockHeight + destChainBottomHeight;
+      const yOffset = -destChainTopHeight;
+
+      // チェーンの描画（上部）
+      // 左端、中央（タイル）、右端の3パーツで構成
+      const chainEdgeWidth = 20; // チェーン端の幅（ソース）
+      const destChainEdgeWidth = chainEdgeWidth * scale;
+
+      // 上チェーン - 左端
+      ctx.drawImage(
+        caterpillarChainImage,
+        0, 0, chainEdgeWidth, chainTopHeight,
+        platform.x, screenY + yOffset, destChainEdgeWidth, destChainTopHeight
+      );
+      // 上チェーン - 中央（タイル）
+      const chainMiddleSrcWidth = caterpillarChainImage.width - chainEdgeWidth * 2;
+      const platformMiddleWidth = platform.width - destChainEdgeWidth * 2;
+      ctx.drawImage(
+        caterpillarChainImage,
+        chainEdgeWidth, 0, chainMiddleSrcWidth, chainTopHeight,
+        platform.x + destChainEdgeWidth, screenY + yOffset, platformMiddleWidth, destChainTopHeight
+      );
+      // 上チェーン - 右端
+      ctx.drawImage(
+        caterpillarChainImage,
+        caterpillarChainImage.width - chainEdgeWidth, 0, chainEdgeWidth, chainTopHeight,
+        platform.x + platform.width - destChainEdgeWidth, screenY + yOffset, destChainEdgeWidth, destChainTopHeight
+      );
+
+      // ブロックの描画（中央）
+      const blockY = screenY + yOffset + destChainTopHeight;
+      for (let i = 0; i < platform.blockCount; i++) {
+        const blockX = platform.x + i * destBlockWidth;
+        const srcBlockIndex = i % 7;
+        const srcX = srcBlockIndex * blockSrcWidth;
+        ctx.drawImage(
+          caterpillarBlockImage,
+          srcX, 0, blockSrcWidth, blockSrcHeight,
+          blockX, blockY, destBlockWidth, destBlockHeight
+        );
+      }
+
+      // 下チェーン - 左端
+      const bottomChainY = screenY + yOffset + destChainTopHeight + destBlockHeight;
+      ctx.drawImage(
+        caterpillarChainImage,
+        0, caterpillarChainImage.height - chainBottomHeight, chainEdgeWidth, chainBottomHeight,
+        platform.x, bottomChainY, destChainEdgeWidth, destChainBottomHeight
+      );
+      // 下チェーン - 中央（タイル）
+      ctx.drawImage(
+        caterpillarChainImage,
+        chainEdgeWidth, caterpillarChainImage.height - chainBottomHeight, chainMiddleSrcWidth, chainBottomHeight,
+        platform.x + destChainEdgeWidth, bottomChainY, platformMiddleWidth, destChainBottomHeight
+      );
+      // 下チェーン - 右端
+      ctx.drawImage(
+        caterpillarChainImage,
+        caterpillarChainImage.width - chainEdgeWidth, caterpillarChainImage.height - chainBottomHeight, chainEdgeWidth, chainBottomHeight,
+        platform.x + platform.width - destChainEdgeWidth, bottomChainY, destChainEdgeWidth, destChainBottomHeight
+      );
+
+      // キャタピラの方向を示す矢印
+      const direction = platform.caterpillarDirection || 1;
+      ctx.fillStyle = '#FFFFFF';
+      const arrowX = platform.x + platform.width / 2;
+      const arrowY = screenY + CONFIG.PLATFORM.HEIGHT / 2;
+      if (direction > 0) {
+        ctx.fillRect(arrowX + 2, arrowY, 6, 3);
+        ctx.fillRect(arrowX + 6, arrowY - 2, 3, 2);
+        ctx.fillRect(arrowX + 6, arrowY + 3, 3, 2);
+      } else {
+        ctx.fillRect(arrowX - 8, arrowY, 6, 3);
+        ctx.fillRect(arrowX - 9, arrowY - 2, 3, 2);
+        ctx.fillRect(arrowX - 9, arrowY + 3, 3, 2);
+      }
+    } else if (img && imgInfo) {
+      // 通常の足場描画
       const srcBlockWidth = imgInfo.width / imgInfo.blockCount;
       const srcBlockHeight = imgInfo.height;
       const destBlockWidth = blockSize;
       const destBlockHeight = CONFIG.PLATFORM.HEIGHT;
 
-      // キャタピラは少し高く描画（トラック部分を含む）
-      const destHeight = platformType === 'caterpillar'
-        ? destBlockHeight * 1.5
-        : destBlockHeight;
-      const yOffset = platformType === 'caterpillar' ? -destBlockHeight * 0.3 : 0;
-
       for (let i = 0; i < platform.blockCount; i++) {
         const blockX = platform.x + i * destBlockWidth;
-        // ソース画像からブロックを選択（ループ）
         const srcBlockIndex = i % imgInfo.blockCount;
         const srcX = srcBlockIndex * srcBlockWidth;
 
         ctx.drawImage(
           img,
-          srcX, 0, srcBlockWidth, srcBlockHeight,  // ソース
-          blockX, screenY + yOffset, destBlockWidth, destHeight  // デスト
+          srcX, 0, srcBlockWidth, srcBlockHeight,
+          blockX, screenY, destBlockWidth, destBlockHeight
         );
       }
 
-      // キャタピラの方向を示す矢印
-      if (platformType === 'caterpillar') {
-        const direction = platform.caterpillarDirection || 1;
-        ctx.fillStyle = '#FFFFFF';
+      // 動く足場の方向を示す矢印（水色）
+      if (platformType === 'moving') {
+        const direction = platform.movingDirection || 1;
+        ctx.fillStyle = '#87CEEB'; // 水色
         const arrowX = platform.x + platform.width / 2;
         const arrowY = screenY + CONFIG.PLATFORM.HEIGHT / 2;
         if (direction > 0) {
+          // 右矢印
           ctx.fillRect(arrowX + 2, arrowY, 6, 3);
           ctx.fillRect(arrowX + 6, arrowY - 2, 3, 2);
           ctx.fillRect(arrowX + 6, arrowY + 3, 3, 2);
         } else {
+          // 左矢印
           ctx.fillRect(arrowX - 8, arrowY, 6, 3);
           ctx.fillRect(arrowX - 9, arrowY - 2, 3, 2);
           ctx.fillRect(arrowX - 9, arrowY + 3, 3, 2);
@@ -253,13 +365,28 @@ export function drawTako(
   // 画像を選択（1秒チャージに合わせて閾値調整）
   let imageName: string;
   if (tako.state === 'dead') {
-    imageName = 'dead';
+    // 死亡アニメーション: 死亡後の経過時間に応じて3段階で変化
+    // 0〜300ms: 死んだ瞬間（dead-0）
+    // 300〜600ms: 死んだ直後（dead-1）
+    // 600ms〜: 黒ずみ（dead-2）
+    const deadElapsed = tako.deadTime ? performance.now() - tako.deadTime : 0;
+    if (deadElapsed < 300) {
+      imageName = 'dead-0';
+    } else if (deadElapsed < 600) {
+      imageName = 'dead-1';
+    } else {
+      imageName = 'dead-2';
+    }
   } else if (tako.chargeRatio >= 1) {
-    imageName = '100';
-  } else if (tako.chargeRatio >= 0.66) {
-    imageName = '66';
-  } else if (tako.chargeRatio >= 0.33) {
-    imageName = '33';
+    // 100%到達後: オレンジと黄色が高速で切り替わる（100msごと）
+    const blinkPhase = Math.floor(performance.now() / 100) % 2;
+    imageName = blinkPhase === 0 ? '100-orange' : '100-yellow';
+  } else if (tako.chargeRatio >= 0.75) {
+    imageName = '75';
+  } else if (tako.chargeRatio >= 0.5) {
+    imageName = '50';
+  } else if (tako.chargeRatio >= 0.25) {
+    imageName = '25';
   } else {
     imageName = '0';
   }
@@ -336,29 +463,53 @@ export function drawWater(ctx: CanvasRenderingContext2D, state: GameState) {
     return;
   }
 
-  // 画像を1.25倍に拡大して表示（4/5の幅を使用 = 1.25倍表示）
+  // 画像を1.25倍に拡大して表示
   const scale = 1.25;
-  const imgWidth = waterImage.width * scale;
-  const imgHeight = waterImage.height * scale;
+  // 整数に切り上げて隙間を防ぐ
+  const imgWidth = Math.ceil(waterImage.width * scale);
+  const imgHeight = Math.ceil(waterImage.height * scale);
 
   // 横スクロールオフセット（左方向にゆっくり移動、ループ）
   const scrollSpeed = 0.3;
-  const scrollOffset = (water.waveOffset * scrollSpeed) % imgWidth;
+  // スクロールオフセットを正の値で計算（負の値にならないように）
+  const rawOffset = (water.waveOffset * scrollSpeed) % imgWidth;
+  const scrollOffset = rawOffset < 0 ? rawOffset + imgWidth : rawOffset;
 
   // 画像をタイル状に並べて水面を描画
-  const startY = screenY;
+  const startY = Math.floor(screenY);
 
-  // 横方向にタイル（スクロールオフセット付き、ループのため左右に余分に描画）
-  for (let x = -scrollOffset - imgWidth; x < CONFIG.CANVAS_WIDTH + imgWidth; x += imgWidth) {
+  // 開始X位置を計算（画面左端より左から開始してシームレスにループ）
+  // スクロールオフセット分だけ左にずらす
+  let startX = -scrollOffset;
+  // startXが正の場合、1タイル分左にずらす
+  while (startX > 0) {
+    startX -= imgWidth;
+  }
+
+  // 横方向にタイル（隙間を防ぐため2px重ねて描画し、端をクリップ）
+  const tileOverlap = 2;
+
+  // 描画前に画面領域でクリップ（オーバーラップ分がはみ出さないように）
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, Math.max(0, startY), CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+  ctx.clip();
+
+  for (let x = startX; x < CONFIG.CANVAS_WIDTH + tileOverlap; x += imgWidth - tileOverlap) {
     // 縦方向にタイル（水面から画面下端まで）
-    for (let y = startY; y < CONFIG.CANVAS_HEIGHT; y += imgHeight) {
+    for (let y = startY; y < CONFIG.CANVAS_HEIGHT + tileOverlap; y += imgHeight - tileOverlap) {
+      // 整数座標で描画（小数点以下の誤差で隙間が生じるのを防ぐ）
+      const drawX = Math.round(x);
+      const drawY = Math.round(y);
       ctx.drawImage(
         waterImage,
         0, 0, waterImage.width, waterImage.height, // ソース領域（全体）
-        x, y, imgWidth, imgHeight // 描画領域
+        drawX, drawY, imgWidth + 1, imgHeight + 1 // 描画領域（少し大きく描画）
       );
     }
   }
+
+  ctx.restore();
 }
 
 // うなぎを描画（円形に曲がったうなぎ）
@@ -434,6 +585,56 @@ export function drawEels(ctx: CanvasRenderingContext2D, eels: Eel[], cameraY: nu
     const sparkleOffset = Math.sin(Date.now() * 0.01 + eel.x) * 3;
     ctx.fillRect(eel.x + 4, screenY + 4 + sparkleOffset, 2, 2);
     ctx.fillRect(eel.x + eel.size - 6, screenY + eel.size - 8 - sparkleOffset, 2, 2);
+  });
+}
+
+// クラゲを描画
+export function drawJellyfish(ctx: CanvasRenderingContext2D, jellyfish: Jellyfish[], cameraY: number) {
+  jellyfish.forEach(jf => {
+    if (jf.isCollected) return; // 取得済みはスキップ
+
+    // 浮遊アニメーション
+    const floatY = Math.sin(Date.now() * CONFIG.JELLYFISH.FLOAT_SPEED + jf.floatOffset) * CONFIG.JELLYFISH.FLOAT_RANGE;
+    const screenY = jf.y - cameraY + floatY;
+
+    // 画面外はスキップ
+    if (screenY < -jf.size || screenY > CONFIG.CANVAS_HEIGHT + jf.size) return;
+
+    // 画像があれば画像を描画
+    if (jellyfishImage) {
+      ctx.drawImage(
+        jellyfishImage,
+        jf.x, screenY, jf.size, jf.size
+      );
+    } else {
+      // フォールバック: 画像がない場合は図形で描画
+      const centerX = jf.x + jf.size / 2;
+      const centerY = screenY + jf.size / 2;
+
+      // クラゲの傘（半円形）
+      ctx.fillStyle = '#FF69B4'; // ピンク色
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, jf.size / 2 - 4, Math.PI, 0);
+      ctx.fill();
+
+      // クラゲの触手
+      ctx.strokeStyle = '#FF69B4';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const tentacleX = centerX - 8 + i * 6;
+        const waveOffset = Math.sin(Date.now() * 0.005 + i) * 3;
+        ctx.beginPath();
+        ctx.moveTo(tentacleX, centerY);
+        ctx.lineTo(tentacleX + waveOffset, centerY + 12);
+        ctx.stroke();
+      }
+    }
+
+    // キラキラエフェクト
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    const sparkleOffset = Math.sin(Date.now() * 0.008 + jf.x) * 2;
+    ctx.fillRect(jf.x + 4, screenY + 4 + sparkleOffset, 2, 2);
+    ctx.fillRect(jf.x + jf.size - 6, screenY + 8 - sparkleOffset, 2, 2);
   });
 }
 
