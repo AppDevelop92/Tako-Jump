@@ -657,7 +657,7 @@ export function Game() {
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.font = '10px "Press Start 2P", monospace';
       ctx.textAlign = 'left';
-      ctx.fillText('SPACE:CHARGE  ARROWS:DIR', 10, CONFIG.CANVAS_HEIGHT - 10);
+      ctx.fillText(isMobile ? 'BUTTON:CHARGE  ←→:DIR' : 'SPACE:CHARGE  ARROWS:DIR', 10, CONFIG.CANVAS_HEIGHT - 10);
     }
 
     // タイトル画面
@@ -678,7 +678,7 @@ export function Game() {
       ctx.fillText('HIGH SCORE', CONFIG.CANVAS_WIDTH / 2, 420);
       ctx.fillText(`${state.highScore}`, CONFIG.CANVAS_WIDTH / 2, 450);
 
-      ctx.fillText('PRESS SPACE', CONFIG.CANVAS_WIDTH / 2, 540);
+      ctx.fillText(isMobile ? 'TAP BUTTON' : 'PRESS SPACE', CONFIG.CANVAS_WIDTH / 2, 540);
     }
 
     // クリア画面
@@ -718,7 +718,7 @@ export function Game() {
       }
 
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('PRESS SPACE', CONFIG.CANVAS_WIDTH / 2, 560);
+      ctx.fillText(isMobile ? 'TAP BUTTON' : 'PRESS SPACE', CONFIG.CANVAS_WIDTH / 2, 560);
     }
 
     // ゲームオーバー画面
@@ -748,7 +748,7 @@ export function Game() {
       }
 
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('PRESS SPACE', CONFIG.CANVAS_WIDTH / 2, 560);
+      ctx.fillText(isMobile ? 'TAP BUTTON' : 'PRESS SPACE', CONFIG.CANVAS_WIDTH / 2, 560);
     }
 
     // ポーズ画面

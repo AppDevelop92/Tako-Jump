@@ -93,13 +93,13 @@ export function MobileControls({
   }, [jumpTouchId, onJumpEnd]);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 flex justify-between items-end px-6 pb-10 pointer-events-none z-50">
+    <div className="fixed bottom-0 left-0 right-0 flex justify-between items-end px-8 pb-12 pointer-events-none z-50">
       {/* 左側: 方向ボタン（左・右） - 親指が自然に届く位置 */}
-      <div className="flex gap-4 pointer-events-auto">
+      <div className="flex gap-5 pointer-events-auto">
         {/* 左ボタン */}
         <div
-          className="relative w-18 h-18 touch-none select-none"
-          style={{ width: '72px', height: '72px' }}
+          className="relative touch-none select-none"
+          style={{ width: '80px', height: '80px' }}
           onTouchStart={handleLeftTouchStart}
           onTouchEnd={handleLeftTouchEnd}
           onTouchCancel={handleLeftTouchEnd}
@@ -132,7 +132,7 @@ export function MobileControls({
         {/* 右ボタン */}
         <div
           className="relative touch-none select-none"
-          style={{ width: '72px', height: '72px' }}
+          style={{ width: '80px', height: '80px' }}
           onTouchStart={handleRightTouchStart}
           onTouchEnd={handleRightTouchEnd}
           onTouchCancel={handleRightTouchEnd}
@@ -166,7 +166,7 @@ export function MobileControls({
       {/* 右側: ジャンプボタン - 親指が自然に届く位置 */}
       <div
         className="relative touch-none select-none pointer-events-auto"
-        style={{ width: '88px', height: '88px' }}
+        style={{ width: '96px', height: '96px' }}
         onTouchStart={handleJumpTouchStart}
         onTouchEnd={handleJumpTouchEnd}
         onTouchCancel={handleJumpTouchEnd}
