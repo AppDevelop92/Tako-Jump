@@ -1,10 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
-
-// コントロール画像のインポート
-import dpadDefaultSrc from '../assets/dpad_default.png';
-import dpadActiveSrc from '../assets/dpad_active.png';
-import jumpDefaultSrc from '../assets/jump_button_default.png';
-import jumpChargingSrc from '../assets/jump_button_charging.png';
+import { useRef, useCallback, useState } from 'react';
 
 interface MobileControlsProps {
   onDirectionChange: (direction: { x: number; y: number }) => void;
@@ -20,7 +14,7 @@ function calculateDirection(
   touchY: number,
   centerX: number,
   centerY: number,
-  threshold: number = 20
+  threshold: number = 15
 ): { x: number; y: number } {
   const dx = touchX - centerX;
   const dy = touchY - centerY;
@@ -31,13 +25,11 @@ function calculateDirection(
   }
 
   // 角度を計算（ラジアン）
-  // atan2は右が0度、上が-90度、下が90度
-  let angle = Math.atan2(dy, dx);
+  const angle = Math.atan2(dy, dx);
 
   // 30度〜150度の範囲のみ対応（上方向: -150度〜-30度）
-  // 下方向（正のy）は無視
-  const minAngle = (-150 * Math.PI) / 180; // -150度（左上）
-  const maxAngle = (-30 * Math.PI) / 180; // -30度（右上）
+  const minAngle = (-150 * Math.PI) / 180;
+  const maxAngle = (-30 * Math.PI) / 180;
 
   // 範囲外の場合は入力なし
   if (angle > 0 || angle < minAngle || angle > maxAngle) {
@@ -45,22 +37,14 @@ function calculateDirection(
   }
 
   // 3方向に正規化（左上、真上、右上）
-  const upperLeft = (-150 * Math.PI) / 180;
-  const upperRight = (-30 * Math.PI) / 180;
-  const up = (-90 * Math.PI) / 180;
-
-  // 境界角度
-  const leftBound = (upperLeft + up) / 2; // -120度
-  const rightBound = (up + upperRight) / 2; // -60度
+  const leftBound = (-120 * Math.PI) / 180;
+  const rightBound = (-60 * Math.PI) / 180;
 
   if (angle < leftBound) {
-    // 左上
     return { x: -1, y: -1 };
   } else if (angle > rightBound) {
-    // 右上
     return { x: 1, y: -1 };
   } else {
-    // 真上
     return { x: 0, y: -1 };
   }
 }
@@ -72,14 +56,15 @@ export function MobileControls({
   isCharging,
 }: MobileControlsProps) {
   const dpadRef = useRef<HTMLDivElement>(null);
-  const jumpRef = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dpadTouchId, setDpadTouchId] = useState<number | null>(null);
   const [jumpTouchId, setJumpTouchId] = useState<number | null>(null);
+  const [isJumpPressed, setIsJumpPressed] = useState(false);
 
   // D-padのタッチハンドラー
   const handleDpadTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const touch = e.changedTouches[0];
     if (!dpadRef.current) return;
 
@@ -95,6 +80,7 @@ export function MobileControls({
 
   const handleDpadTouchMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (dpadTouchId === null) return;
 
     const touch = Array.from(e.touches).find(t => t.identifier === dpadTouchId);
@@ -111,6 +97,7 @@ export function MobileControls({
 
   const handleDpadTouchEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const touch = Array.from(e.changedTouches).find(t => t.identifier === dpadTouchId);
     if (touch) {
       setDpadTouchId(null);
@@ -122,64 +109,123 @@ export function MobileControls({
   // ジャンプボタンのタッチハンドラー
   const handleJumpTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const touch = e.changedTouches[0];
     setJumpTouchId(touch.identifier);
+    setIsJumpPressed(true);
     onJumpStart();
   }, [onJumpStart]);
 
   const handleJumpTouchEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const touch = Array.from(e.changedTouches).find(t => t.identifier === jumpTouchId);
     if (touch) {
       setJumpTouchId(null);
+      setIsJumpPressed(false);
       onJumpEnd();
     }
   }, [jumpTouchId, onJumpEnd]);
 
-  // 方向に応じた回転角度を計算
-  const getRotation = () => {
-    if (direction.x === 0 && direction.y === 0) return 0;
-    const angle = Math.atan2(direction.y, direction.x) * (180 / Math.PI);
-    return angle - 45; // 画像の初期角度を調整
+  // D-padの矢印の色を取得
+  const getArrowColor = (arrowDir: 'left' | 'up' | 'right') => {
+    const activeColor = '#E8A87C'; // サーモンピンク（アクティブ）
+    const inactiveColor = '#6B5B7A'; // 紫がかったグレー（非アクティブ）
+
+    if (arrowDir === 'left' && direction.x === -1) return activeColor;
+    if (arrowDir === 'up' && direction.y === -1 && direction.x === 0) return activeColor;
+    if (arrowDir === 'right' && direction.x === 1) return activeColor;
+    return inactiveColor;
   };
 
   return (
-    <>
-      {/* 左側: ジャンプボタン */}
-      <div
-        ref={jumpRef}
-        className="absolute left-8 top-1/2 -translate-y-1/2 w-28 h-28 touch-none select-none"
-        onTouchStart={handleJumpTouchStart}
-        onTouchEnd={handleJumpTouchEnd}
-        onTouchCancel={handleJumpTouchEnd}
-      >
-        <img
-          src={isCharging ? jumpChargingSrc : jumpDefaultSrc}
-          alt="Jump"
-          className="w-full h-full object-contain"
-          draggable={false}
-        />
-      </div>
-
-      {/* 右側: D-pad（方向パッド） */}
+    <div className="fixed bottom-0 left-0 right-0 flex justify-between items-end p-4 pb-6 pointer-events-none z-50">
+      {/* 左側: D-pad（方向パッド） */}
       <div
         ref={dpadRef}
-        className="absolute right-8 top-1/2 -translate-y-1/2 w-32 h-32 touch-none select-none"
+        className="relative w-24 h-24 touch-none select-none pointer-events-auto"
         onTouchStart={handleDpadTouchStart}
         onTouchMove={handleDpadTouchMove}
         onTouchEnd={handleDpadTouchEnd}
         onTouchCancel={handleDpadTouchEnd}
       >
-        <img
-          src={direction.x !== 0 || direction.y !== 0 ? dpadActiveSrc : dpadDefaultSrc}
-          alt="D-pad"
-          className="w-full h-full object-contain"
-          style={{
-            transform: direction.x !== 0 || direction.y !== 0 ? `rotate(${getRotation()}deg)` : 'none',
-          }}
-          draggable={false}
-        />
+        {/* 外側の円（背景） */}
+        <div className="absolute inset-0 rounded-full bg-[#8B7BA3] opacity-80" />
+
+        {/* 内側の円 */}
+        <div className="absolute inset-3 rounded-full bg-[#9B8AB3] opacity-90" />
+
+        {/* 矢印 - 左 */}
+        <svg
+          className="absolute left-1 top-1/2 -translate-y-1/2 w-4 h-4"
+          viewBox="0 0 24 24"
+          fill={getArrowColor('left')}
+        >
+          <path d="M15 19l-7-7 7-7" stroke={getArrowColor('left')} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+
+        {/* 矢印 - 上 */}
+        <svg
+          className="absolute top-1 left-1/2 -translate-x-1/2 w-4 h-4"
+          viewBox="0 0 24 24"
+          fill={getArrowColor('up')}
+        >
+          <path d="M5 15l7-7 7 7" stroke={getArrowColor('up')} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+
+        {/* 矢印 - 右 */}
+        <svg
+          className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4"
+          viewBox="0 0 24 24"
+          fill={getArrowColor('right')}
+        >
+          <path d="M9 5l7 7-7 7" stroke={getArrowColor('right')} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+
+        {/* 矢印 - 下（非アクティブ表示のみ） */}
+        <svg
+          className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-4"
+          viewBox="0 0 24 24"
+        >
+          <path d="M19 9l-7 7-7-7" stroke="#6B5B7A" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </div>
-    </>
+
+      {/* 右側: ジャンプボタン */}
+      <div
+        className="relative w-20 h-20 touch-none select-none pointer-events-auto"
+        onTouchStart={handleJumpTouchStart}
+        onTouchEnd={handleJumpTouchEnd}
+        onTouchCancel={handleJumpTouchEnd}
+      >
+        {/* 外側の円（背景） */}
+        <div
+          className="absolute inset-0 rounded-full transition-colors duration-100"
+          style={{
+            backgroundColor: isCharging ? '#E8A87C' : '#8B7BA3',
+            opacity: 0.8,
+          }}
+        />
+
+        {/* 内側の円 */}
+        <div
+          className="absolute inset-2 rounded-full transition-all duration-100"
+          style={{
+            backgroundColor: isCharging ? '#FFD93D' : '#9B8AB3',
+            opacity: 0.9,
+            transform: isJumpPressed ? 'scale(0.9)' : 'scale(1)',
+          }}
+        />
+
+        {/* チャージインジケーター */}
+        {isCharging && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
+              className="w-3 h-3 rounded-full bg-white animate-pulse"
+            />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

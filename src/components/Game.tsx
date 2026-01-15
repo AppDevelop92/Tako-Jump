@@ -854,37 +854,26 @@ export function Game() {
     }
   }, [state.screen, pauseGame, resumeGame, restartFromBeginning]);
 
-  // モバイルの場合は横画面レイアウト
+  // モバイルの場合は縦画面レイアウト（コントロールは下部にオーバーレイ）
   if (isMobile) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
-        {/* 左コントロールエリア（ジャンプボタン） */}
-        <div className="flex-1 h-full relative">
-          {/* Jump buttonはMobileControlsで描画 */}
-        </div>
-
-        {/* ゲーム画面（中央、画面高さの60%） */}
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ height: '60vh' }}>
+      <div className="fixed inset-0 bg-[#2D2A5A] flex flex-col">
+        {/* ゲーム画面（フルスクリーン） */}
+        <div className="flex-1 flex items-center justify-center overflow-hidden">
           <canvas
             ref={canvasRef}
             width={CONFIG.CANVAS_WIDTH}
             height={CONFIG.CANVAS_HEIGHT}
-            className="h-full"
+            className="max-w-full max-h-full"
             style={{
               imageRendering: 'pixelated',
-              aspectRatio: `${CONFIG.CANVAS_WIDTH} / ${CONFIG.CANVAS_HEIGHT}`,
             }}
             tabIndex={0}
             onClick={handleCanvasClick}
           />
         </div>
 
-        {/* 右コントロールエリア（方向パッド） */}
-        <div className="flex-1 h-full relative">
-          {/* D-padはMobileControlsで描画 */}
-        </div>
-
-        {/* モバイルコントロール（オーバーレイ） */}
+        {/* モバイルコントロール（下部にオーバーレイ） */}
         <MobileControls
           onDirectionChange={handleDirectionChange}
           onJumpStart={handleJumpStart}

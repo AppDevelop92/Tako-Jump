@@ -4,7 +4,7 @@
 
 ## Play
 
-https://hiroaki-sato1117.github.io/tako-jump/
+https://appdevelop92.github.io/Tako-Jump/
 
 ## 操作方法
 
@@ -26,12 +26,17 @@ https://hiroaki-sato1117.github.io/tako-jump/
 
 ### スマホ（タッチ）
 
-横画面で操作します。
+縦画面で操作します。画面下部にコントロールが表示されます。
 
 | 操作 | 方法 |
 |------|------|
-| 方向指定 | 左側の方向パッドをタッチ |
-| チャージ＆ジャンプ | 右側のジャンプボタンを長押し→離す |
+| 方向指定 | 左下の方向パッドをタッチ・スライド（上方向のみ対応） |
+| チャージ＆ジャンプ | 右下のジャンプボタンを長押し→離す |
+
+**方向パッド仕様**:
+- 左上・真上・右上の3方向に対応
+- 下方向は入力できません（ジャンプは上方向のみのため）
+- タッチしたまま指をスライドして方向を変更可能
 
 ## Architecture
 
@@ -39,7 +44,8 @@ https://hiroaki-sato1117.github.io/tako-jump/
 tako-jump/
 ├── src/
 │   ├── components/
-│   │   └── Game.tsx          # メインゲームコンポーネント（状態管理・ゲームループ）
+│   │   ├── Game.tsx          # メインゲームコンポーネント（状態管理・ゲームループ）
+│   │   └── MobileControls.tsx # スマホ用タッチコントロール
 │   ├── game/
 │   │   ├── config.ts         # 全設定値（調整はここ）
 │   │   ├── types.ts          # 型定義
@@ -51,7 +57,7 @@ tako-jump/
 │   ├── hooks/
 │   │   ├── useGameLoop.ts    # 60fpsゲームループ
 │   │   └── useKeyboardInput.ts # キーボード入力
-│   └── assets/               # タコ画像（チャージ段階別）
+│   └── assets/               # 画像アセット
 ├── docs/
 │   ├── plan.md               # 開発計画
 │   ├── stages.md             # ステージ設計
@@ -63,28 +69,55 @@ tako-jump/
 
 ### タコ（プレイヤーキャラクター）
 
-チャージ段階に応じて見た目が変化します。
+チャージ段階に応じて見た目が変化します（5段階）。
 
-| 通常 | チャージ33% | チャージ66% | チャージ100% | 死亡 |
-|:----:|:----------:|:----------:|:-----------:|:----:|
-| ![tako-0](src/assets/tako-0.png) | ![tako-33](src/assets/tako-33.png) | ![tako-66](src/assets/tako-66.png) | ![tako-100](src/assets/tako-100.png) | ![tako-dead](src/assets/tako-dead.png) |
+| 状態 | ファイル名 | 説明 |
+|------|-----------|------|
+| 通常 | `tako-0.png` | チャージ0%（デフォルト） |
+| 25% | `tako-25.png` | チャージ25% |
+| 50% | `tako-50.png` | チャージ50% |
+| 75% | `tako-75.png` | チャージ75% |
+| 100%（オレンジ） | `tako-100-orange.png` | チャージ100%（点滅用） |
+| 100%（黄色） | `tako-100-yellow.png` | チャージ100%（点滅用） |
+| 死亡1 | `tako-dead-0.png` | 死亡直後 |
+| 死亡2 | `tako-dead-1.png` | 死亡中間 |
+| 死亡3 | `tako-dead-2.png` | 死亡最終 |
 
 ### 足場
 
-| ノーマル | 氷 | キャタピラ |
-|:--------:|:--:|:---------:|
-| ![platform-normal](src/assets/platform_normal.png) | ![platform-ice](src/assets/platform_ice.png) | ![platform-caterpillar](src/assets/platform_caterpillar.png) |
-| 着地すると停止 | 摩擦0で滑る | 乗ると端まで運ばれる |
+| 種類 | ファイル名 | 説明 |
+|------|-----------|------|
+| ノーマル | `platform_normal.png` | 着地すると停止 |
+| 氷 | `platform_ice.png` | 摩擦0で滑る |
+| キャタピラ | `platform_caterpillar.png` | 乗ると端まで運ばれる |
+| キャタピラブロック | `caterpillar_block.png` | キャタピラの中央部分 |
+| キャタピラチェーン | `caterpillar_chain.png` | キャタピラの端部分 |
+| 動く足場 | `platform_moving.png` | 左右に移動する（ステージ11〜） |
 
-### 背景・地面・うなぎ
+### アイテム・ギミック
 
-これらはCanvas APIで描画されています：
+| 種類 | ファイル名 | 説明 |
+|------|-----------|------|
+| クラゲ | `jellyfish.png` | 空中ジャンプ能力を付与（ステージ11〜） |
+| 水 | `water.png` | 下から迫ってくる水（シームレスタイル） |
+
+### モバイルコントロール（使用中止・SVG描画に変更）
+
+| 種類 | ファイル名 | 説明 |
+|------|-----------|------|
+| 方向パッド（通常） | `dpad_default.png` | 非アクティブ状態 |
+| 方向パッド（アクティブ） | `dpad_active.png` | 方向入力中 |
+| ジャンプボタン（通常） | `jump_button_default.png` | 非アクティブ状態 |
+| ジャンプボタン（チャージ中） | `jump_button_charging.png` | チャージ中 |
+
+※ 現在のモバイルコントロールはSVGで動的に描画しています
+
+### その他（Canvas描画）
 
 | 要素 | 色 | 説明 |
 |------|-----|------|
 | 背景 | `#2D2A5A` | 紺色の夜空 |
 | 地面 | `#1E1B3A` | ステージ最下部の床 |
-| 水 | `#660099` | 下から迫ってくる紫色の水（ギザギザの上端＋白いドットパターン） |
 | 月 | `#FFD93D` | ゴール（黄色） |
 | 星 | `#9B8AC4` | 背景装飾（薄紫） |
 | うなぎ | `#FF6B6B` | スーパージャンプアイテム（薄い赤の円） |
@@ -94,7 +127,7 @@ tako-jump/
 | 用語 | 説明 |
 |------|------|
 | **地面** | ステージの一番下にあるフラットな床（画面幅全体） |
-| **足場** | 空中に浮いている着地できる場所（ノーマル、氷、キャタピラの3種類） |
+| **足場** | 空中に浮いている着地できる場所（ノーマル、氷、キャタピラ、動く足場の4種類） |
 
 ## Config Reference
 
@@ -105,7 +138,7 @@ tako-jump/
 |-----------|--------|------|
 | `WIDTH` | 29 | タコの幅（px） |
 | `HEIGHT` | 35 | タコの高さ（px） |
-| `GRAVITY` | 0.36 | 重力加速度（毎フレーム） |
+| `GRAVITY` | 0.35 | 重力加速度（毎フレーム） |
 | `MAX_FALL_SPEED` | 10.5 | 最大落下速度 |
 | `MAX_HORIZONTAL_SPEED` | 8 | 横移動速度の最大値 |
 | `AIR_CONTROL` | 0.25 | 空中での横移動強度（チャージ中以外） |
@@ -119,16 +152,17 @@ tako-jump/
 | パラメータ | 現在値 | 説明 |
 |-----------|--------|------|
 | `MAX_CHARGE_TIME` | 1000 | 最大チャージ時間（ms） |
-| `MAX_VELOCITY` | 15.8 | 最大ジャンプ速度 |
-| `MIN_VELOCITY` | 5.3 | 最小ジャンプ速度 |
+| `MAX_VELOCITY` | 15.54 | 最大ジャンプ速度 |
+| `MIN_VELOCITY` | 5.2 | 最小ジャンプ速度 |
 | `MIN_ANGLE` | 50° | 最小ジャンプ角度 |
 | `MAX_ANGLE` | 130° | 最大ジャンプ角度 |
 
-**最大ジャンプ高さ**: 約345px（計算式: MAX_VELOCITY² / (2 × GRAVITY) = 15.8² / 0.72）
+**最大ジャンプ高さ**: 約345px（計算式: MAX_VELOCITY² / (2 × GRAVITY)）
 
 **ジャンプ制限**:
 - 地上にいる時のみジャンプ可能
 - 空中ではチャージできるがジャンプは発動しない（チャージ解除のみ）
+- 空中ジャンプクラゲを取得している場合、空中で1回だけジャンプ可能
 - 足場から落下した場合もジャンプ不可
 
 ### Platform (足場)
@@ -152,12 +186,24 @@ tako-jump/
 | `COLOR_LIGHT` | #A0A0A0 | 薄い灰色 |
 | `COLOR_DARK` | #606060 | 濃い灰色 |
 
+### Moving (動く足場) ※ステージ11〜
+| パラメータ | 現在値 | 説明 |
+|-----------|--------|------|
+| `DEFAULT_SPEED` | 1.5 | デフォルト移動速度 |
+
 ### Eel (スーパージャンプうなぎ)
 | パラメータ | 現在値 | 説明 |
 |-----------|--------|------|
 | `SIZE` | 32 | うなぎのサイズ（px） |
 | `SUPER_JUMP_VELOCITY` | 24 | スーパージャンプ速度 |
 | `COLOR` | #FF6B6B | うなぎの色（薄い赤） |
+
+### Jellyfish (空中ジャンプクラゲ) ※ステージ11〜
+| パラメータ | 現在値 | 説明 |
+|-----------|--------|------|
+| `SIZE` | 36 | クラゲのサイズ（px） |
+| `FLOAT_SPEED` | 0.003 | 浮遊アニメーション速度 |
+| `FLOAT_RANGE` | 8 | 浮遊範囲（px） |
 
 ### Stage Settings (ステージ設定)
 各ステージには以下の設定があります：
@@ -244,12 +290,6 @@ tako-jump/
 - 1回使うと消費される（重複取得不可）
 - ステージリスタート時にリセットされる
 
-### 動く足場（ステージ11〜）
-- 左右に移動する足場
-- 水色の矢印で移動方向を表示
-- 端に到達すると反転
-- 乗っているタコも一緒に移動する
-
 ## Tuning Guide
 
 ### 難易度を上げたい
@@ -269,7 +309,7 @@ tako-jump/
 - `MAX_VELOCITY` を上げる → より高く跳べる
 - `HORIZONTAL_FACTOR` を調整 → 横移動距離を変更
 
-**注意**: `gapMax` / `firstPlatformGap` は最大ジャンプ高さ（365px）を超えないようにする
+**注意**: `gapMax` / `firstPlatformGap` は最大ジャンプ高さ（345px）を超えないようにする
 
 ## Key Mechanics
 
@@ -297,8 +337,13 @@ npm run build:check
 # 型チェックのみ
 npm run typecheck
 
-# デプロイ
-npm run build && npx gh-pages -d dist
+# デプロイ（gh-pagesブランチへ）
+npm run build
+git checkout gh-pages
+rm -rf assets index.html vite.svg
+cp -r dist/* .
+git add -A && git commit -m "Deploy" && git push origin gh-pages
+git checkout main
 ```
 
 ## Tech Stack
