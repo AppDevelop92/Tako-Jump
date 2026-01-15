@@ -25,7 +25,6 @@ export function MobileControls({
     let x = 0;
     if (left && !right) x = -1;
     else if (right && !left) x = 1;
-    // 両方押された場合は0（キャンセル）
     onDirectionChange({ x, y: x !== 0 ? -1 : 0 });
   }, [onDirectionChange]);
 
@@ -92,116 +91,101 @@ export function MobileControls({
     }
   }, [jumpTouchId, onJumpEnd]);
 
+  // ドット絵風ボタンのスタイル
+  const pixelButtonStyle = (isPressed: boolean, isActive: boolean = false) => ({
+    backgroundColor: isPressed ? '#E8A87C' : (isActive ? '#FFD93D' : '#3D3A6A'),
+    border: '4px solid',
+    borderColor: isPressed ? '#F0C8A8' : (isActive ? '#FFE066' : '#6B5B7A'),
+    borderRadius: '8px', // 少しだけ角丸（ドット絵風）
+    boxShadow: isPressed
+      ? 'inset 2px 2px 0 rgba(0,0,0,0.3)'
+      : '2px 2px 0 rgba(0,0,0,0.5), inset -2px -2px 0 rgba(0,0,0,0.2)',
+    transform: isPressed ? 'translate(2px, 2px)' : 'translate(0, 0)',
+    imageRendering: 'pixelated' as const,
+  });
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 flex justify-between items-end px-8 pb-12 pointer-events-none z-50">
-      {/* 左側: 方向ボタン（左・右） - 親指が自然に届く位置 */}
-      <div className="flex gap-5 pointer-events-auto">
+    <div className="fixed bottom-0 left-0 right-0 flex justify-between items-end px-6 pb-16 pointer-events-none z-50">
+      {/* 左側: 方向ボタン（左・右） */}
+      <div className="flex gap-4 pointer-events-auto">
         {/* 左ボタン */}
         <div
           className="relative touch-none select-none"
-          style={{ width: '80px', height: '80px' }}
+          style={{ width: '72px', height: '72px' }}
           onTouchStart={handleLeftTouchStart}
           onTouchEnd={handleLeftTouchEnd}
           onTouchCancel={handleLeftTouchEnd}
         >
-          {/* 外側の円 */}
           <div
-            className="absolute inset-0 rounded-full transition-all duration-100"
-            style={{
-              backgroundColor: isLeftPressed ? '#E8A87C' : '#8B7BA3',
-              opacity: 0.85,
-              transform: isLeftPressed ? 'scale(0.93)' : 'scale(1)',
-            }}
-          />
-          {/* 矢印アイコン */}
-          <svg
-            className="absolute inset-0 w-full h-full p-5"
-            viewBox="0 0 24 24"
-            fill="none"
+            className="absolute inset-0 flex items-center justify-center transition-all duration-75"
+            style={pixelButtonStyle(isLeftPressed)}
           >
-            <path
-              d="M15 19l-7-7 7-7"
-              stroke={isLeftPressed ? '#FFFFFF' : '#E8E8E8'}
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+            {/* ドット絵風の左矢印 */}
+            <svg width="32" height="32" viewBox="0 0 16 16" style={{ imageRendering: 'pixelated' }}>
+              <rect x="8" y="2" width="2" height="2" fill={isLeftPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="6" y="4" width="2" height="2" fill={isLeftPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="4" y="6" width="2" height="2" fill={isLeftPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="2" y="8" width="2" height="2" fill={isLeftPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="4" y="10" width="2" height="2" fill={isLeftPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="6" y="12" width="2" height="2" fill={isLeftPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="8" y="14" width="2" height="2" fill={isLeftPressed ? '#FFF' : '#9B8AC4'} />
+              {/* 横線 */}
+              <rect x="4" y="8" width="10" height="2" fill={isLeftPressed ? '#FFF' : '#9B8AC4'} />
+            </svg>
+          </div>
         </div>
 
         {/* 右ボタン */}
         <div
           className="relative touch-none select-none"
-          style={{ width: '80px', height: '80px' }}
+          style={{ width: '72px', height: '72px' }}
           onTouchStart={handleRightTouchStart}
           onTouchEnd={handleRightTouchEnd}
           onTouchCancel={handleRightTouchEnd}
         >
-          {/* 外側の円 */}
           <div
-            className="absolute inset-0 rounded-full transition-all duration-100"
-            style={{
-              backgroundColor: isRightPressed ? '#E8A87C' : '#8B7BA3',
-              opacity: 0.85,
-              transform: isRightPressed ? 'scale(0.93)' : 'scale(1)',
-            }}
-          />
-          {/* 矢印アイコン */}
-          <svg
-            className="absolute inset-0 w-full h-full p-5"
-            viewBox="0 0 24 24"
-            fill="none"
+            className="absolute inset-0 flex items-center justify-center transition-all duration-75"
+            style={pixelButtonStyle(isRightPressed)}
           >
-            <path
-              d="M9 5l7 7-7 7"
-              stroke={isRightPressed ? '#FFFFFF' : '#E8E8E8'}
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+            {/* ドット絵風の右矢印 */}
+            <svg width="32" height="32" viewBox="0 0 16 16" style={{ imageRendering: 'pixelated' }}>
+              <rect x="6" y="2" width="2" height="2" fill={isRightPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="8" y="4" width="2" height="2" fill={isRightPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="10" y="6" width="2" height="2" fill={isRightPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="12" y="8" width="2" height="2" fill={isRightPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="10" y="10" width="2" height="2" fill={isRightPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="8" y="12" width="2" height="2" fill={isRightPressed ? '#FFF' : '#9B8AC4'} />
+              <rect x="6" y="14" width="2" height="2" fill={isRightPressed ? '#FFF' : '#9B8AC4'} />
+              {/* 横線 */}
+              <rect x="2" y="8" width="10" height="2" fill={isRightPressed ? '#FFF' : '#9B8AC4'} />
+            </svg>
+          </div>
         </div>
       </div>
 
-      {/* 右側: ジャンプボタン - 親指が自然に届く位置 */}
+      {/* 右側: ジャンプボタン */}
       <div
         className="relative touch-none select-none pointer-events-auto"
-        style={{ width: '96px', height: '96px' }}
+        style={{ width: '88px', height: '88px' }}
         onTouchStart={handleJumpTouchStart}
         onTouchEnd={handleJumpTouchEnd}
         onTouchCancel={handleJumpTouchEnd}
       >
-        {/* 外側の円（背景） */}
         <div
-          className="absolute inset-0 rounded-full transition-colors duration-100"
-          style={{
-            backgroundColor: isCharging ? '#E8A87C' : '#8B7BA3',
-            opacity: 0.85,
-          }}
-        />
-
-        {/* 内側の円 */}
-        <div
-          className="absolute rounded-full transition-all duration-100"
-          style={{
-            top: '8px',
-            left: '8px',
-            right: '8px',
-            bottom: '8px',
-            backgroundColor: isCharging ? '#FFD93D' : '#9B8AB3',
-            opacity: 0.9,
-            transform: isJumpPressed ? 'scale(0.88)' : 'scale(1)',
-          }}
-        />
-
-        {/* チャージインジケーター */}
-        {isCharging && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div
-              className="w-4 h-4 rounded-full bg-white animate-pulse"
-            />
-          </div>
-        )}
+          className="absolute inset-0 flex items-center justify-center transition-all duration-75"
+          style={pixelButtonStyle(isJumpPressed, isCharging)}
+        >
+          {/* ドット絵風のジャンプアイコン（上矢印） */}
+          <svg width="40" height="40" viewBox="0 0 16 16" style={{ imageRendering: 'pixelated' }}>
+            <rect x="7" y="2" width="2" height="2" fill={isJumpPressed || isCharging ? '#FFF' : '#9B8AC4'} />
+            <rect x="5" y="4" width="2" height="2" fill={isJumpPressed || isCharging ? '#FFF' : '#9B8AC4'} />
+            <rect x="9" y="4" width="2" height="2" fill={isJumpPressed || isCharging ? '#FFF' : '#9B8AC4'} />
+            <rect x="3" y="6" width="2" height="2" fill={isJumpPressed || isCharging ? '#FFF' : '#9B8AC4'} />
+            <rect x="11" y="6" width="2" height="2" fill={isJumpPressed || isCharging ? '#FFF' : '#9B8AC4'} />
+            {/* 縦線 */}
+            <rect x="7" y="4" width="2" height="10" fill={isJumpPressed || isCharging ? '#FFF' : '#9B8AC4'} />
+          </svg>
+        </div>
       </div>
     </div>
   );
