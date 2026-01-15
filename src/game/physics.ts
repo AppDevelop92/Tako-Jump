@@ -316,14 +316,13 @@ export function updateMovingPlatforms(platforms: Platform[]): Platform[] {
 
     const direction = platform.movingDirection || 1;
     const speed = platform.movingSpeed || CONFIG.MOVING.DEFAULT_SPEED;
-    const range = platform.movingRange || CONFIG.MOVING.DEFAULT_RANGE;
 
     let newX = platform.x + speed * direction;
     let newDirection = direction;
 
-    // 移動範囲の端で反転
-    const minX = Math.max(0, platform.initialX - range);
-    const maxX = Math.min(CONFIG.CANVAS_WIDTH - platform.width, platform.initialX + range);
+    // 画面端で反転（画面幅全体を往復）
+    const minX = 0;
+    const maxX = CONFIG.CANVAS_WIDTH - platform.width;
 
     if (newX <= minX) {
       newX = minX;

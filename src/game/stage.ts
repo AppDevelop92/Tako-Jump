@@ -131,11 +131,13 @@ export function generatePlatforms(stageConfig: StageConfig): Platform[] {
     }
 
     // 動く足場の場合、追加プロパティを設定
+    // 画面横幅全体を往復するように設定
     if (type === 'moving') {
       platform.initialX = x;
       platform.movingDirection = currentRandom() < 0.5 ? 1 : -1;
       platform.movingSpeed = stageConfig.movingSpeed || CONFIG.MOVING.DEFAULT_SPEED;
-      platform.movingRange = CONFIG.MOVING.DEFAULT_RANGE;
+      // 画面幅全体を往復できるように範囲を設定（画面端から端まで）
+      platform.movingRange = CONFIG.CANVAS_WIDTH; // 画面幅全体
     }
 
     platforms.push(platform);

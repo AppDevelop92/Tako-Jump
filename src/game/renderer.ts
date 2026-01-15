@@ -192,17 +192,13 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
     const img = platformImages[platformType];
     const imgInfo = PLATFORM_IMAGE_INFO[platformType];
 
-    // キャタピラ足場は特別な描画処理（ブロック + チェーン）
+    // キャタピラ足場は特別な描画処理（ブロック + 回転するチェーン）
     if (platformType === 'caterpillar' && caterpillarBlockImage && caterpillarChainImage) {
       // チェーン画像の情報
-      // chainImage: 667 x 128 px
-      // 上チェーン: 0-20px, 中央（ブロック領域）: 20-108px, 下チェーン: 108-128px
       const chainTopHeight = 20;
       const chainBottomHeight = 20;
-      const chainMiddleHeight = 88;
 
       // ブロック画像の情報
-      // blockImage: 627 x 89 px, 7ブロック
       const blockSrcWidth = caterpillarBlockImage.width / 7;
       const blockSrcHeight = caterpillarBlockImage.height;
 
@@ -212,29 +208,49 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
       const destBlockHeight = blockSrcHeight * scale;
       const destChainTopHeight = chainTopHeight * scale;
       const destChainBottomHeight = chainBottomHeight * scale;
-      const totalHeight = destChainTopHeight + destBlockHeight + destChainBottomHeight;
       const yOffset = -destChainTopHeight;
 
-      // チェーンの描画（上部）
-      // 左端、中央（タイル）、右端の3パーツで構成
-      const chainEdgeWidth = 20; // チェーン端の幅（ソース）
+      // チェーン回転アニメーション用オフセット
+      const direction = platform.caterpillarDirection || 1;
+      const chainAnimSpeed = 2; // チェーンの回転速度
+      const animOffset = (Date.now() * chainAnimSpeed * 0.05 * direction) % caterpillarChainImage.width;
+
+      // チェーン端の幅
+      const chainEdgeWidth = 20;
       const destChainEdgeWidth = chainEdgeWidth * scale;
 
-      // 上チェーン - 左端
+      // クリッピング領域を設定
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(platform.x, screenY + yOffset, platform.width, destChainTopHeight + destBlockHeight + destChainBottomHeight);
+      ctx.clip();
+
+      // 上チェーン - スクロールアニメーション（左→右方向に動く）
+      const chainMiddleSrcWidth = caterpillarChainImage.width - chainEdgeWidth * 2;
+      const platformMiddleWidth = platform.width - destChainEdgeWidth * 2;
+
+      // タイルを繰り返して描画（アニメーション用）
+      const tileWidth = chainMiddleSrcWidth * scale;
+      const startOffset = (animOffset * scale) % tileWidth;
+
+      // 上チェーン中央部分をスクロール
+      for (let xPos = -startOffset; xPos < platformMiddleWidth; xPos += tileWidth) {
+        const drawX = platform.x + destChainEdgeWidth + xPos;
+        const drawWidth = Math.min(tileWidth, platformMiddleWidth - xPos);
+        if (drawX < platform.x + destChainEdgeWidth) continue;
+        ctx.drawImage(
+          caterpillarChainImage,
+          chainEdgeWidth, 0, chainMiddleSrcWidth, chainTopHeight,
+          drawX, screenY + yOffset, drawWidth, destChainTopHeight
+        );
+      }
+
+      // 上チェーン端
       ctx.drawImage(
         caterpillarChainImage,
         0, 0, chainEdgeWidth, chainTopHeight,
         platform.x, screenY + yOffset, destChainEdgeWidth, destChainTopHeight
       );
-      // 上チェーン - 中央（タイル）
-      const chainMiddleSrcWidth = caterpillarChainImage.width - chainEdgeWidth * 2;
-      const platformMiddleWidth = platform.width - destChainEdgeWidth * 2;
-      ctx.drawImage(
-        caterpillarChainImage,
-        chainEdgeWidth, 0, chainMiddleSrcWidth, chainTopHeight,
-        platform.x + destChainEdgeWidth, screenY + yOffset, platformMiddleWidth, destChainTopHeight
-      );
-      // 上チェーン - 右端
       ctx.drawImage(
         caterpillarChainImage,
         caterpillarChainImage.width - chainEdgeWidth, 0, chainEdgeWidth, chainTopHeight,
@@ -254,28 +270,37 @@ export function drawPlatforms(ctx: CanvasRenderingContext2D, platforms: Platform
         );
       }
 
-      // 下チェーン - 左端
+      // 下チェーン - 逆方向にスクロール
       const bottomChainY = screenY + yOffset + destChainTopHeight + destBlockHeight;
+      const reverseOffset = (-animOffset * scale) % tileWidth;
+      const startReverseOffset = reverseOffset < 0 ? reverseOffset + tileWidth : reverseOffset;
+
+      for (let xPos = -startReverseOffset; xPos < platformMiddleWidth; xPos += tileWidth) {
+        const drawX = platform.x + destChainEdgeWidth + xPos;
+        const drawWidth = Math.min(tileWidth, platformMiddleWidth - xPos);
+        if (drawX < platform.x + destChainEdgeWidth) continue;
+        ctx.drawImage(
+          caterpillarChainImage,
+          chainEdgeWidth, caterpillarChainImage.height - chainBottomHeight, chainMiddleSrcWidth, chainBottomHeight,
+          drawX, bottomChainY, drawWidth, destChainBottomHeight
+        );
+      }
+
+      // 下チェーン端
       ctx.drawImage(
         caterpillarChainImage,
         0, caterpillarChainImage.height - chainBottomHeight, chainEdgeWidth, chainBottomHeight,
         platform.x, bottomChainY, destChainEdgeWidth, destChainBottomHeight
       );
-      // 下チェーン - 中央（タイル）
-      ctx.drawImage(
-        caterpillarChainImage,
-        chainEdgeWidth, caterpillarChainImage.height - chainBottomHeight, chainMiddleSrcWidth, chainBottomHeight,
-        platform.x + destChainEdgeWidth, bottomChainY, platformMiddleWidth, destChainBottomHeight
-      );
-      // 下チェーン - 右端
       ctx.drawImage(
         caterpillarChainImage,
         caterpillarChainImage.width - chainEdgeWidth, caterpillarChainImage.height - chainBottomHeight, chainEdgeWidth, chainBottomHeight,
         platform.x + platform.width - destChainEdgeWidth, bottomChainY, destChainEdgeWidth, destChainBottomHeight
       );
 
+      ctx.restore();
+
       // キャタピラの方向を示す矢印
-      const direction = platform.caterpillarDirection || 1;
       ctx.fillStyle = '#FFFFFF';
       const arrowX = platform.x + platform.width / 2;
       const arrowY = screenY + CONFIG.PLATFORM.HEIGHT / 2;
@@ -414,6 +439,46 @@ export function drawTako(
   }
 
   ctx.restore();
+
+  // 空中ジャンプを持っている時のキラキラエフェクト
+  if (tako.hasAirJump && tako.state !== 'dead') {
+    const time = Date.now();
+    const sparkleColors = ['#FF69B4', '#FFD700', '#00FFFF', '#FFFFFF']; // ピンク、金、シアン、白
+
+    // 複数のキラキラを周囲に配置
+    for (let i = 0; i < 6; i++) {
+      const angle = (time * 0.003 + (i * Math.PI * 2) / 6) % (Math.PI * 2);
+      const radius = 18 + Math.sin(time * 0.005 + i) * 4;
+      const sparkleX = tako.position.x + CONFIG.TAKO.WIDTH / 2 + Math.cos(angle) * radius;
+      const sparkleY = screenY + CONFIG.TAKO.HEIGHT / 2 + Math.sin(angle) * radius * 0.6;
+
+      const colorIndex = (Math.floor(time * 0.01) + i) % sparkleColors.length;
+      const alpha = 0.5 + Math.sin(time * 0.01 + i * 2) * 0.3;
+
+      ctx.fillStyle = sparkleColors[colorIndex];
+      ctx.globalAlpha = alpha;
+
+      // 星形のキラキラ
+      const size = 3 + Math.sin(time * 0.008 + i) * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(sparkleX, sparkleY - size);
+      ctx.lineTo(sparkleX + size * 0.3, sparkleY);
+      ctx.lineTo(sparkleX, sparkleY + size);
+      ctx.lineTo(sparkleX - size * 0.3, sparkleY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(sparkleX - size, sparkleY);
+      ctx.lineTo(sparkleX, sparkleY + size * 0.3);
+      ctx.lineTo(sparkleX + size, sparkleY);
+      ctx.lineTo(sparkleX, sparkleY - size * 0.3);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+  }
 }
 
 // 月を描画
@@ -588,41 +653,44 @@ export function drawEels(ctx: CanvasRenderingContext2D, eels: Eel[], cameraY: nu
   });
 }
 
-// クラゲを描画
+// クラゲを描画（その場でキラキラするエフェクト）
 export function drawJellyfish(ctx: CanvasRenderingContext2D, jellyfish: Jellyfish[], cameraY: number) {
   jellyfish.forEach(jf => {
     if (jf.isCollected) return; // 取得済みはスキップ
 
-    // 浮遊アニメーション
-    const floatY = Math.sin(Date.now() * CONFIG.JELLYFISH.FLOAT_SPEED + jf.floatOffset) * CONFIG.JELLYFISH.FLOAT_RANGE;
-    const screenY = jf.y - cameraY + floatY;
+    // 上下動なし、その場に固定
+    const screenY = jf.y - cameraY;
 
     // 画面外はスキップ
     if (screenY < -jf.size || screenY > CONFIG.CANVAS_HEIGHT + jf.size) return;
 
+    const time = Date.now();
+
     // 画像があれば画像を描画
     if (jellyfishImage) {
+      // わずかな透明度の揺らぎでキラキラ感を出す
+      const alphaFlicker = 0.85 + Math.sin(time * 0.008 + jf.floatOffset) * 0.15;
+      ctx.globalAlpha = alphaFlicker;
       ctx.drawImage(
         jellyfishImage,
         jf.x, screenY, jf.size, jf.size
       );
+      ctx.globalAlpha = 1;
     } else {
       // フォールバック: 画像がない場合は図形で描画
       const centerX = jf.x + jf.size / 2;
       const centerY = screenY + jf.size / 2;
 
-      // クラゲの傘（半円形）
-      ctx.fillStyle = '#FF69B4'; // ピンク色
+      ctx.fillStyle = '#FF69B4';
       ctx.beginPath();
       ctx.arc(centerX, centerY, jf.size / 2 - 4, Math.PI, 0);
       ctx.fill();
 
-      // クラゲの触手
       ctx.strokeStyle = '#FF69B4';
       ctx.lineWidth = 2;
       for (let i = 0; i < 4; i++) {
         const tentacleX = centerX - 8 + i * 6;
-        const waveOffset = Math.sin(Date.now() * 0.005 + i) * 3;
+        const waveOffset = Math.sin(time * 0.005 + i) * 3;
         ctx.beginPath();
         ctx.moveTo(tentacleX, centerY);
         ctx.lineTo(tentacleX + waveOffset, centerY + 12);
@@ -630,11 +698,45 @@ export function drawJellyfish(ctx: CanvasRenderingContext2D, jellyfish: Jellyfis
       }
     }
 
-    // キラキラエフェクト
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    const sparkleOffset = Math.sin(Date.now() * 0.008 + jf.x) * 2;
-    ctx.fillRect(jf.x + 4, screenY + 4 + sparkleOffset, 2, 2);
-    ctx.fillRect(jf.x + jf.size - 6, screenY + 8 - sparkleOffset, 2, 2);
+    // 複数のキラキラエフェクト（ランダムな位置で点滅）
+    const sparkleCount = 5;
+    for (let i = 0; i < sparkleCount; i++) {
+      // 各キラキラの点滅タイミングをずらす
+      const sparklePhase = (time * 0.01 + jf.floatOffset + i * 1.3) % 2;
+      const sparkleAlpha = sparklePhase < 1 ? sparklePhase : 2 - sparklePhase;
+
+      if (sparkleAlpha > 0.3) {
+        // キラキラの位置（クラゲの周囲に配置）
+        const sparkleAngle = (i * Math.PI * 2 / sparkleCount) + jf.floatOffset;
+        const sparkleRadius = jf.size * 0.4 + Math.sin(time * 0.003 + i) * 4;
+        const sparkleX = jf.x + jf.size / 2 + Math.cos(sparkleAngle) * sparkleRadius;
+        const sparkleY = screenY + jf.size / 2 + Math.sin(sparkleAngle) * sparkleRadius * 0.7;
+
+        const sparkleColors = ['#FFFFFF', '#FFD700', '#FF69B4', '#00FFFF'];
+        ctx.fillStyle = sparkleColors[i % sparkleColors.length];
+        ctx.globalAlpha = sparkleAlpha * 0.8;
+
+        // 星形のキラキラ
+        const size = 2 + sparkleAlpha * 2;
+        ctx.beginPath();
+        ctx.moveTo(sparkleX, sparkleY - size);
+        ctx.lineTo(sparkleX + size * 0.3, sparkleY);
+        ctx.lineTo(sparkleX, sparkleY + size);
+        ctx.lineTo(sparkleX - size * 0.3, sparkleY);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(sparkleX - size, sparkleY);
+        ctx.lineTo(sparkleX, sparkleY + size * 0.3);
+        ctx.lineTo(sparkleX + size, sparkleY);
+        ctx.lineTo(sparkleX, sparkleY - size * 0.3);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    ctx.globalAlpha = 1;
   });
 }
 
