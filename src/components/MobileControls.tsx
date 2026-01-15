@@ -93,12 +93,13 @@ export function MobileControls({
   }, [jumpTouchId, onJumpEnd]);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 flex justify-between items-end p-4 pb-6 pointer-events-none z-50">
-      {/* 左側: 方向ボタン（左・右） */}
-      <div className="flex gap-3 pointer-events-auto">
+    <div className="fixed bottom-0 left-0 right-0 flex justify-between items-end px-6 pb-10 pointer-events-none z-50">
+      {/* 左側: 方向ボタン（左・右） - 親指が自然に届く位置 */}
+      <div className="flex gap-4 pointer-events-auto">
         {/* 左ボタン */}
         <div
-          className="relative w-16 h-16 touch-none select-none"
+          className="relative w-18 h-18 touch-none select-none"
+          style={{ width: '72px', height: '72px' }}
           onTouchStart={handleLeftTouchStart}
           onTouchEnd={handleLeftTouchEnd}
           onTouchCancel={handleLeftTouchEnd}
@@ -108,20 +109,20 @@ export function MobileControls({
             className="absolute inset-0 rounded-full transition-all duration-100"
             style={{
               backgroundColor: isLeftPressed ? '#E8A87C' : '#8B7BA3',
-              opacity: 0.8,
-              transform: isLeftPressed ? 'scale(0.95)' : 'scale(1)',
+              opacity: 0.85,
+              transform: isLeftPressed ? 'scale(0.93)' : 'scale(1)',
             }}
           />
           {/* 矢印アイコン */}
           <svg
-            className="absolute inset-0 w-full h-full p-4"
+            className="absolute inset-0 w-full h-full p-5"
             viewBox="0 0 24 24"
             fill="none"
           >
             <path
               d="M15 19l-7-7 7-7"
               stroke={isLeftPressed ? '#FFFFFF' : '#E8E8E8'}
-              strokeWidth="3"
+              strokeWidth="3.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -130,7 +131,8 @@ export function MobileControls({
 
         {/* 右ボタン */}
         <div
-          className="relative w-16 h-16 touch-none select-none"
+          className="relative touch-none select-none"
+          style={{ width: '72px', height: '72px' }}
           onTouchStart={handleRightTouchStart}
           onTouchEnd={handleRightTouchEnd}
           onTouchCancel={handleRightTouchEnd}
@@ -140,20 +142,20 @@ export function MobileControls({
             className="absolute inset-0 rounded-full transition-all duration-100"
             style={{
               backgroundColor: isRightPressed ? '#E8A87C' : '#8B7BA3',
-              opacity: 0.8,
-              transform: isRightPressed ? 'scale(0.95)' : 'scale(1)',
+              opacity: 0.85,
+              transform: isRightPressed ? 'scale(0.93)' : 'scale(1)',
             }}
           />
           {/* 矢印アイコン */}
           <svg
-            className="absolute inset-0 w-full h-full p-4"
+            className="absolute inset-0 w-full h-full p-5"
             viewBox="0 0 24 24"
             fill="none"
           >
             <path
               d="M9 5l7 7-7 7"
               stroke={isRightPressed ? '#FFFFFF' : '#E8E8E8'}
-              strokeWidth="3"
+              strokeWidth="3.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -161,9 +163,10 @@ export function MobileControls({
         </div>
       </div>
 
-      {/* 右側: ジャンプボタン */}
+      {/* 右側: ジャンプボタン - 親指が自然に届く位置 */}
       <div
-        className="relative w-20 h-20 touch-none select-none pointer-events-auto"
+        className="relative touch-none select-none pointer-events-auto"
+        style={{ width: '88px', height: '88px' }}
         onTouchStart={handleJumpTouchStart}
         onTouchEnd={handleJumpTouchEnd}
         onTouchCancel={handleJumpTouchEnd}
@@ -173,17 +176,21 @@ export function MobileControls({
           className="absolute inset-0 rounded-full transition-colors duration-100"
           style={{
             backgroundColor: isCharging ? '#E8A87C' : '#8B7BA3',
-            opacity: 0.8,
+            opacity: 0.85,
           }}
         />
 
         {/* 内側の円 */}
         <div
-          className="absolute inset-2 rounded-full transition-all duration-100"
+          className="absolute rounded-full transition-all duration-100"
           style={{
+            top: '8px',
+            left: '8px',
+            right: '8px',
+            bottom: '8px',
             backgroundColor: isCharging ? '#FFD93D' : '#9B8AB3',
             opacity: 0.9,
-            transform: isJumpPressed ? 'scale(0.9)' : 'scale(1)',
+            transform: isJumpPressed ? 'scale(0.88)' : 'scale(1)',
           }}
         />
 
@@ -191,7 +198,7 @@ export function MobileControls({
         {isCharging && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div
-              className="w-3 h-3 rounded-full bg-white animate-pulse"
+              className="w-4 h-4 rounded-full bg-white animate-pulse"
             />
           </div>
         )}
